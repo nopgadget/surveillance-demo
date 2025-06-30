@@ -43,3 +43,19 @@ The application can be controlled using the following keyboard commands while th
 * **Quit**: Press `q` to close the application and end the video stream.
 * **Start/Stop Recording**: Press the `spacebar` to start recording the on-screen display to a local `.mp4` file. Press it again to stop.
 * **Save Screenshot**: A brief tap of the `spacebar` will save a single screenshot as a `.jpg` file.
+
+---
+
+## Getting Started
+
+Using a python virtual environment manager of your choice (in this example we will use conda), install the pre-reqs from requirements.txt
+
+```
+conda create -n conference_demo python=3.9.6
+
+conda activate conference_demo
+
+# Navigate to the repo
+
+python -m pip install -r .\requirements.txt
+```
