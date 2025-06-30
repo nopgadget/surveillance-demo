@@ -73,17 +73,20 @@ class MultiModelTrackerApp:
         return img
 
     def _frame_reader_thread(self):
-        """Reads frames from the camera and puts them into a queue."""
+        """Reads and resizes frames, then puts them into a queue."""
         while not self.stop_event.is_set():
             ret, frame = self.cap.read()
             if not ret:
                 print("End of stream or camera disconnected.")
                 self.stop_event.set()
                 break
+
+            # Resize the frame immediately after capture
+            resized_frame = cv2.resize(frame, (self.width, self.height))
             
             try:
-                # Put frame into the queue, but drop old one if full
-                self.frame_queue.put(frame, block=True, timeout=1)
+                # Put the single resized frame into the queue for all consumers
+                self.frame_queue.put(resized_frame, block=True, timeout=1)
             except queue.Full:
                 continue
         print("Frame reader thread stopped.")
@@ -161,6 +164,11 @@ class MultiModelTrackerApp:
         last_hand_results = None
 
         while not self.stop_event.is_set():
+            try:
+                display_frame = self.frame_queue.get(timeout=1)
+            except queue.Empty:
+                continue
+            
             ret, frame = self.cap.read()
             if not ret:
                 break
