@@ -7,8 +7,8 @@ import screeninfo
 
 # Configuration
 RTSP_URL = "rtsp://192.168.1.109:554/0/0/0"
-MODEL_PATH = "yolo11n.pt"
-LOGO_PATH = "odplogo.png"
+MODEL_PATH = "models/yolo11n.pt"
+LOGO_PATH = "img/odplogo.png"
 WINDOW_NAME = "People Tracker"
 
 # Get screen dimensions
@@ -21,7 +21,7 @@ if logo is None:
     raise FileNotFoundError("Logo image not found!")
 
 # Load QR code
-qr_code = cv2.imread("qr-code.png", cv2.IMREAD_UNCHANGED)
+qr_code = cv2.imread("img/qr-code.png", cv2.IMREAD_UNCHANGED)
 if qr_code is None:
     raise FileNotFoundError("QR code image not found!")
     raise FileNotFoundError("Logo image not found!")
@@ -37,7 +37,8 @@ model = YOLO(MODEL_PATH)
 names = model.model.names
 
 # Open video stream
-cap = cv2.VideoCapture(RTSP_URL)
+#cap = cv2.VideoCapture(RTSP_URL)
+cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     raise RuntimeError(f"Cannot open stream: {RTSP_URL}")
 
