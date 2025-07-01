@@ -19,7 +19,7 @@ CONFIG = {
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
     "window_name": "Multi-Tracking Demo",
-    "info_text": "Attention: This demo uses live video only. No data is retained, stored or shared."
+    "info_text": "Live video processing only. No data is retained, stored or shared."
 }
 
 # --- MediaPipe Initialization ---
@@ -65,7 +65,7 @@ class MultiModelTrackerApp:
 
         else:
             self.width, self.height = 1280, 720
-            
+
         cv2.namedWindow(self.config["window_name"], cv2.WINDOW_AUTOSIZE)
 
     def _load_assets(self):
@@ -151,6 +151,9 @@ class MultiModelTrackerApp:
         for i in range(len(finger_tips_ids)):
             if hand_landmarks.landmark[finger_tips_ids[i]].y > hand_landmarks.landmark[pip_joints_ids[i]].y:
                 return False
+        #TODO: implement logic to prevent false positive with thumb misplaced
+        # Issue: hand can be oriented either way, so X comparison may not work. maybe relativity comparison
+        #if hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].x 
         return True
 
     def _draw_info_text(self, frame):
