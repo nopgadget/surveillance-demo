@@ -14,6 +14,7 @@ CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
     "use_webcam": True,
+    "use_small_window": True,
     "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
@@ -54,12 +55,17 @@ class MultiModelTrackerApp:
         self.video_writer = None
 
     def _setup_screen(self):
-        try:
-            screen = screeninfo.get_monitors()[0]
-            self.width, self.height = screen.width, screen.height
-        except screeninfo.common.ScreenInfoError:
-            print("Could not get screen info. Using 1280x720.")
+        if self.config["use_small_window"] == "True":
+            try:
+                screen = screeninfo.get_monitors()[0]
+                self.width, self.height = screen.width, screen.height
+            except screeninfo.common.ScreenInfoError:
+                print("Could not get screen info. Using 1280x720.")
+                self.width, self.height = 1280, 720
+
+        else:
             self.width, self.height = 1280, 720
+            
         cv2.namedWindow(self.config["window_name"], cv2.WINDOW_AUTOSIZE)
 
     def _load_assets(self):
