@@ -58,6 +58,4 @@ conda activate conference_demo
 # Navigate to the repo
 
 python -m pip install -r .\requirements.txt
-
-
 ```
