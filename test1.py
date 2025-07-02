@@ -23,7 +23,7 @@ CONFIG = {
     "qr_code_path": "img/qr-code.png",
     "window_name": "Multi-Tracking Demo",
     "info_text": "Live video processing only. No data is retained, stored or shared.",
-    "yolo_conf_threshold": 0.3 # New: Confidence threshold for YOLO detections
+    "yolo_conf_threshold": 0.25 # Confidence threshold for YOLO detections
 }
 
 # --- MediaPipe Initialization ---
