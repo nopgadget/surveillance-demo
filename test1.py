@@ -235,6 +235,10 @@ class MultiModelTrackerApp:
         last_yolo_results = None
         last_hand_results = None
 
+        prev_frame_time = time.time()
+        new_frame_time = 0
+        fps = "FPS: 0"
+
         while not self.stop_event.is_set():
             display_frame = None
             with self.frame_lock:
@@ -284,10 +288,18 @@ class MultiModelTrackerApp:
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
             #self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
+            new_frame_time = time.time()
+            fps = "FPS: " + str(1//(new_frame_time - prev_frame_time))
+            prev_frame_time = new_frame_time
+            fps_w, fps_h = cv2.getTextSize(fps, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+            fps_x, fps_y = (self.width - self.width // 4, 80)
+            cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
+            cv2.putText(display_frame, fps, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
             cv2.imshow(self.config["window_name"], display_frame)
 
             key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
+            if key == ord('q') or key == 27: # q or escape key
                 self.stop_event.set()
                 break
             
