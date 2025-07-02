@@ -8,20 +8,22 @@ import cvzone
 import screeninfo
 from pathlib import Path
 import mediapipe as mp
+import torch
 
 # --- Configuration ---
 CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
-    "video_path": "people1.avi", # Specify your video file path here
-    "use_webcam": True,
-    "use_video_file": False, # Set to True to process a video file
+    "video_path": "vid/hongdae.mp4", # Specify your video file path here
+    "use_webcam": False,
+    "use_video_file": True, # Set to True to process a video file
     "use_small_window": True,
     "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
     "window_name": "Multi-Tracking Demo",
-    "info_text": "Live video processing only. No data is retained, stored or shared."
+    "info_text": "Live video processing only. No data is retained, stored or shared.",
+    "yolo_conf_threshold": 0.3 # New: Confidence threshold for YOLO detections
 }
 
 # --- MediaPipe Initialization ---
@@ -45,7 +47,12 @@ class MultiModelTrackerApp:
         # --- Load Assets & Models ---
         self._setup_screen()
         self._load_assets()
-        self.yolo_model = YOLO(self.config["model_path"])
+        
+        # Determine device
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"Using device: {self.device}")
+        
+        self.yolo_model = YOLO(self.config["model_path"]).to(self.device)
         
         # --- Video Source ---
         source = None
@@ -112,7 +119,7 @@ class MultiModelTrackerApp:
                     frame_to_process = self.latest_frame.copy()
 
             if frame_to_process is not None:
-                results = self.yolo_model.track(frame_to_process, persist=True, classes=0, verbose=False)
+                results = self.yolo_model.track(frame_to_process, persist=True, classes=0, verbose=False, conf=self.config["yolo_conf_threshold"])
                 if results and results[0].boxes and results[0].boxes.id is not None:
                     if not self.yolo_results_queue.empty():
                         try: self.yolo_results_queue.get_nowait()
@@ -264,17 +271,18 @@ class MultiModelTrackerApp:
                 track_ids = last_yolo_results.boxes.id.int().cpu().tolist()
                 for box, track_id in zip(boxes, track_ids):
                     x1, y1, x2, y2 = box
-                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cvzone.putTextRect(display_frame, f"ID: {track_id}", (max(0, x1), max(35, y1 - 10)), scale=1.5, thickness=2)
+                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 255, 255), 1)
+                    cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
 
             if high_five_count > 0:
                 text = f"{high_five_count} HIGH FIVE"
                 text += "S!" if high_five_count > 1 else "!"
                 cv2.putText(display_frame, text, (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4, cv2.LINE_AA)
 
-            self._draw_info_text(display_frame)
-            self._overlay_image(display_frame, self.logo, position="bottom-right")
-            self._overlay_image(display_frame, self.qr_code, position="bottom-left")
+            # TODO: Re-enable this when we want to show the logo and QR code
+            #self._draw_info_text(display_frame)
+            #self._overlay_image(display_frame, self.logo, position="bottom-right")
+            #self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
             cv2.imshow(self.config["window_name"], display_frame)
 
