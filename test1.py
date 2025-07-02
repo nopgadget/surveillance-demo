@@ -13,7 +13,9 @@ import mediapipe as mp
 CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
-    "use_webcam": True,
+    "video_path": "people1.avi", # Specify your video file path here
+    "use_webcam": False,
+    "use_video_file": True, # Set to True to process a video file
     "use_small_window": True,
     "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
     "logo_path": "img/odplogo.png",
@@ -46,7 +48,14 @@ class MultiModelTrackerApp:
         self.yolo_model = YOLO(self.config["model_path"])
         
         # --- Video Source ---
-        source = self.config["webcam_id"] if self.config["use_webcam"] else self.config["rtsp_url"]
+        source = None
+        if self.config["use_webcam"]:
+            source = self.config["webcam_id"]
+        elif self.config["use_video_file"]:
+            source = self.config["video_path"]
+        else:
+            source = self.config["rtsp_url"]
+            
         self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
             raise RuntimeError(f"Cannot open video stream: {source}")
@@ -134,6 +143,11 @@ class MultiModelTrackerApp:
                             try: self.hand_results_queue.get_nowait()
                             except queue.Empty: pass
                         self.hand_results_queue.put(results)
+                    else:
+                        if not self.hand_results_queue.empty():
+                            try: self.hand_results_queue.get_nowait()
+                            except queue.Empty: pass
+                        self.hand_results_queue.put(None)
                 
                 time.sleep(0.02) # Prevent thread from running too fast
 
@@ -232,7 +246,7 @@ class MultiModelTrackerApp:
                 pass
             
             high_five_count = 0
-            if last_hand_results:
+            if last_hand_results and last_hand_results.multi_hand_landmarks:
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
                     mp_drawing.draw_landmarks(
                         display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
