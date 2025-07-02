@@ -14,8 +14,8 @@ CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
     "video_path": "people1.avi", # Specify your video file path here
-    "use_webcam": False,
-    "use_video_file": True, # Set to True to process a video file
+    "use_webcam": True,
+    "use_video_file": False, # Set to True to process a video file
     "use_small_window": True,
     "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
     "logo_path": "img/odplogo.png",
@@ -165,9 +165,12 @@ class MultiModelTrackerApp:
         for i in range(len(finger_tips_ids)):
             if hand_landmarks.landmark[finger_tips_ids[i]].y > hand_landmarks.landmark[pip_joints_ids[i]].y:
                 return False
-        #TODO: implement logic to prevent false positive with thumb misplaced
-        # Issue: hand can be oriented either way, so X comparison may not work. maybe relativity comparison
-        #if hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].x 
+        thumb_tip_x = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].x
+        index_finger_tip_x = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x
+        
+        x_proximity_threshold = 0.05 # This value might need tuning
+        if abs(thumb_tip_x - index_finger_tip_x) < x_proximity_threshold:
+            return False
         return True
 
     def _draw_info_text(self, frame):
