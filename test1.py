@@ -15,8 +15,8 @@ CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
     "video_path": "vid/hongdae.mp4", # Specify your video file path here
-    "use_webcam": True,
-    "use_video_file": False, # Set to True to process a video file
+    "use_webcam": False,
+    "use_video_file": True, # Set to True to process a video file
     "use_small_window": False,
     "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
     "logo_path": "img/odplogo.png",
@@ -235,9 +235,19 @@ class MultiModelTrackerApp:
         last_yolo_results = None
         last_hand_results = None
 
+        
+        # FPS Counter Initialization
+        TIME_DIFF_MAX = 0.5 # update FPS counter every X seconds
+        fps_string = "FPS: N/A"
+        fps_w, fps_h = cv2.getTextSize(fps_string, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        fps_x, fps_y = (self.width - self.width // 4, 80)
+        frame_count_in_time_diff = 0.0
+        new_frame_time = 0.0
         prev_frame_time = time.time()
-        new_frame_time = 0
-        fps = "FPS: 0"
+
+        # Average FPS Initialization (end of playback)
+        total_frame_count = 0
+        start_frame_time = prev_frame_time
 
         while not self.stop_event.is_set():
             display_frame = None
@@ -295,17 +305,25 @@ class MultiModelTrackerApp:
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
             #self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
+            # Average FPS Tally (end of playback)
+            total_frame_count += 1
+
+            # FPS Counter Calculation
+            frame_count_in_time_diff += 1
             new_frame_time = time.time()
             time_diff = new_frame_time - prev_frame_time
-            if time_diff > 0:
-                fps = "FPS: " + str(int(1 / time_diff))
+            if time_diff < TIME_DIFF_MAX:
+                frame_count_in_time_diff += 1
             else:
-                fps = "FPS: N/A"
-            prev_frame_time = new_frame_time
-            fps_w, fps_h = cv2.getTextSize(fps, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
-            fps_x, fps_y = (self.width - self.width // 4, 80)
+                fps_string = "FPS: " + str(frame_count_in_time_diff // time_diff)
+                frame_count_in_time_diff = 0
+                prev_frame_time = new_frame_time
+
+                fps_w, fps_h = cv2.getTextSize(fps_string, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+
+            # FPS Counter Display
             cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
-            cv2.putText(display_frame, fps, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+            cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
             cv2.imshow(self.config["window_name"], display_frame)
 
@@ -313,6 +331,18 @@ class MultiModelTrackerApp:
             if key == ord('q') or key == 27: # q or escape key
                 self.stop_event.set()
                 break
+        
+        # Average FPS Calcuation
+        end_frame_time = time.time()
+        time_diff = end_frame_time - start_frame_time
+        if time_diff > 0:
+            fps_string = "FPS: " + str(total_frame_count // time_diff)
+        else:
+            fps_string = "FPS: N/A"
+        
+        # Average FPS Display
+        print("Average " + fps_string)
+
             
         self.cleanup(threads)
 
