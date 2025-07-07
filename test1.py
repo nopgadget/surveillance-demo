@@ -15,15 +15,15 @@ CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
     "video_path": "vid/hongdae.mp4", # Specify your video file path here
-    "use_webcam": False,
-    "use_video_file": True, # Set to True to process a video file
-    "use_small_window": True,
+    "use_webcam": True,
+    "use_video_file": False, # Set to True to process a video file
+    "use_small_window": False,
     "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
     "window_name": "Multi-Tracking Demo",
     "info_text": "Live video processing only. No data is retained, stored or shared.",
-    "yolo_conf_threshold": 0.25 # Confidence threshold for YOLO detections
+    "yolo_conf_threshold": 0.3# Confidence threshold for YOLO detections
 }
 
 # --- MediaPipe Initialization ---
@@ -133,7 +133,7 @@ class MultiModelTrackerApp:
         with mp_hands.Hands(
             min_detection_confidence=0.7,
             min_tracking_confidence=0.5,
-            max_num_hands=2) as hands:
+            max_num_hands=10) as hands:
             while not self.stop_event.is_set():
                 frame_to_process = None
                 with self.frame_lock:
@@ -172,11 +172,11 @@ class MultiModelTrackerApp:
         for i in range(len(finger_tips_ids)):
             if hand_landmarks.landmark[finger_tips_ids[i]].y > hand_landmarks.landmark[pip_joints_ids[i]].y:
                 return False
-        thumb_tip_x = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].x
-        index_finger_tip_x = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x
+        thumb_ip_x = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP].x
+        index_finger_mcp_x = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].x
         
         x_proximity_threshold = 0.05 # This value might need tuning
-        if abs(thumb_tip_x - index_finger_tip_x) < x_proximity_threshold:
+        if abs(thumb_ip_x - index_finger_mcp_x) > x_proximity_threshold:
             return False
         return True
 
@@ -260,15 +260,22 @@ class MultiModelTrackerApp:
                 pass
             
             high_five_count = 0
+            # --- Green DrawingSpec for high five ---
+            green_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4)
             if last_hand_results and last_hand_results.multi_hand_landmarks:
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
-                    mp_drawing.draw_landmarks(
-                        display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                        mp_drawing_styles.get_default_hand_landmarks_style(),
-                        mp_drawing_styles.get_default_hand_connections_style()
-                    )
                     if self._is_high_five(hand_landmarks):
+                        mp_drawing.draw_landmarks(
+                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            green_spec, green_spec
+                        )
                         high_five_count += 1
+                    else:
+                        mp_drawing.draw_landmarks(
+                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            mp_drawing_styles.get_default_hand_landmarks_style(),
+                            mp_drawing_styles.get_default_hand_connections_style()
+                        )
 
             if last_yolo_results:
                 boxes = last_yolo_results.boxes.xyxy.int().cpu().tolist()
@@ -289,7 +296,11 @@ class MultiModelTrackerApp:
             #self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
             new_frame_time = time.time()
-            fps = "FPS: " + str(1//(new_frame_time - prev_frame_time))
+            time_diff = new_frame_time - prev_frame_time
+            if time_diff > 0:
+                fps = "FPS: " + str(int(1 / time_diff))
+            else:
+                fps = "FPS: N/A"
             prev_frame_time = new_frame_time
             fps_w, fps_h = cv2.getTextSize(fps, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
             fps_x, fps_y = (self.width - self.width // 4, 80)
