@@ -14,7 +14,7 @@ import torch
 CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
-    "video_path": "vid/hongdae.mp4", # Specify your video file path here
+    "video_path": "vid/hongdae.mp4", # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
     "use_webcam": True,
     "use_video_file": False, # Set to True to process a video file
     "use_small_window": False,
