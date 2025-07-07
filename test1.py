@@ -14,9 +14,9 @@ import torch
 CONFIG = {
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
     "webcam_id": 0,
-    "video_path": "vid/hongdae.mp4", # Specify your video file path here
-    "use_webcam": False,
-    "use_video_file": True, # Set to True to process a video file
+    "video_path": "vid/hongdae.mp4", # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
+    "use_webcam": True,
+    "use_video_file": False, # Set to True to process a video file
     "use_small_window": False,
     "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
     "logo_path": "img/odplogo.png",
@@ -302,7 +302,7 @@ class MultiModelTrackerApp:
 
             # TODO: Re-enable this when we want to show the logo and QR code
             #self._draw_info_text(display_frame)
-            #self._overlay_image(display_frame, self.logo, position="bottom-right")
+            self._overlay_image(display_frame, self.logo, position="bottom-right")
             #self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
             # Average FPS Tally (end of playback)
