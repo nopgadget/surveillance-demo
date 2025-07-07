@@ -2,3 +2,4 @@ models/*
 *.pt
 .vscode
 vid/*
+.venv
