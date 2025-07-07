@@ -312,9 +312,7 @@ class MultiModelTrackerApp:
             frame_count_in_time_diff += 1
             new_frame_time = time.time()
             time_diff = new_frame_time - prev_frame_time
-            if time_diff < TIME_DIFF_MAX:
-                frame_count_in_time_diff += 1
-            else:
+            if time_diff >= TIME_DIFF_MAX:
                 fps_string = "FPS: " + str(frame_count_in_time_diff // time_diff)
                 frame_count_in_time_diff = 0
                 prev_frame_time = new_frame_time
