@@ -293,7 +293,7 @@ class MultiModelTrackerApp:
             # TODO: Re-enable this when we want to show the logo and QR code
             #self._draw_info_text(display_frame)
             self._overlay_image(display_frame, self.logo, position="bottom-right")
-            self._overlay_image(display_frame, self.qr_code, position="bottom-left")
+            #self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
             new_frame_time = time.time()
             time_diff = new_frame_time - prev_frame_time
