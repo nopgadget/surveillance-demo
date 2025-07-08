@@ -41,8 +41,6 @@ All tracking is performed in real-time, and the session data is discarded the mo
 The application can be controlled using the following keyboard commands while the video window is active:
 
 * **Quit**: Press `q` to close the application and end the video stream.
-* **Start/Stop Recording**: Press the `spacebar` to start recording the on-screen display to a local `.mp4` file. Press it again to stop.
-* **Save Screenshot**: A brief tap of the `spacebar` will save a single screenshot as a `.jpg` file.
 
 ---
 
@@ -60,6 +58,8 @@ conda activate conference_demo
 # Navigate to the repo
 
 python -m pip install -r .\requirements.txt
+
+# If it fails, specifically with "encode() argument 'encoding' must be str", run the pip install a second time
 ```
 
 Alternatively:
