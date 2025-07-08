@@ -3,3 +3,4 @@ models/*
 .vscode
 vid/*
 .venv
+config.json
