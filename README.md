@@ -40,7 +40,7 @@ All tracking is performed in real-time, and the session data is discarded the mo
 
 The application can be controlled using the following keyboard commands while the video window is active:
 
-* **Quit**: Press `q` to close the application and end the video stream.
+* **Quit**: Press `q` or `esc` to close the application and end the video stream.
 
 ---
 
