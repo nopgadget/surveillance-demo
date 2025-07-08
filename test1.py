@@ -9,22 +9,45 @@ import screeninfo
 from pathlib import Path
 import mediapipe as mp
 import torch
+import json
+import os
 
 # --- Configuration ---
-CONFIG = {
-    "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
-    "webcam_id": 0,
-    "video_path": "vid/hongdae.mp4", # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
-    "use_webcam": True,
-    "use_video_file": False, # Set to True to process a video file
-    "use_small_window": False,
-    "model_path": "models/yolo11n.pt",  # Make sure you have a YOLO model file here
-    "logo_path": "img/odplogo.png",
-    "qr_code_path": "img/qr-code.png",
-    "window_name": "Multi-Tracking Demo",
-    "info_text": "Live video processing only. No data is retained, stored or shared.",
-    "yolo_conf_threshold": 0.3# Confidence threshold for YOLO detections
-}
+class Config:
+    # all of the properties below are overwritten by config.json or example-config.json
+    # these are the default values found in example-config.json
+    # to modify these values, copy example-config.json to config.json and modify them there
+
+    rtsp_url = "rtsp://192.168.1.109:554/0/0/0" # default opencv stream
+
+    use_webcam = False,
+    webcam_id = 0,
+
+    use_video_file = False, # Set to True to process a video file
+    video_path = "vid/hongdae.mp4", # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
+
+    use_small_window = False,
+    window_name = "Multi-Tracking Demo",
+    info_text = "Live video processing only. No data is retained, stored or shared.",
+
+    logo_path = "img/odplogo.png",
+    qr_code_path = "img/qr-code.png",
+
+    model_path = "models/yolo11n.pt", # Make sure you have a YOLO model file here
+    yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
+
+    def __init__(self, config_path = "config.json"):
+        if not os.path.exists(config_path):
+            config_path = "example-config.json"
+
+        with open(config_path, "r") as config_file:
+            config_json = json.load(config_file)
+
+        if not isinstance(config_json, dict):
+            return
+
+        for k, v in config_json.items():
+            setattr(self, k, v)
 
 # --- MediaPipe Initialization ---
 mp_hands = mp.solutions.hands
@@ -52,16 +75,16 @@ class MultiModelTrackerApp:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Using device: {self.device}")
         
-        self.yolo_model = YOLO(self.config["model_path"]).to(self.device)
+        self.yolo_model = YOLO(self.config.model_path).to(self.device)
         
         # --- Video Source ---
         source = None
-        if self.config["use_webcam"]:
-            source = self.config["webcam_id"]
-        elif self.config["use_video_file"]:
-            source = self.config["video_path"]
+        if self.config.use_webcam:
+            source = self.config.webcam_id
+        elif self.config.use_video_file:
+            source = self.config.video_path
         else:
-            source = self.config["rtsp_url"]
+            source = self.config.rtsp_url
             
         self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
@@ -71,7 +94,7 @@ class MultiModelTrackerApp:
         self.video_writer = None
 
     def _setup_screen(self):
-        if self.config["use_small_window"] == "True":
+        if self.config.use_small_window:
             try:
                 screen = screeninfo.get_monitors()[0]
                 self.width, self.height = screen.width, screen.height
@@ -82,11 +105,11 @@ class MultiModelTrackerApp:
         else:
             self.width, self.height = 1280, 720
 
-        cv2.namedWindow(self.config["window_name"], cv2.WINDOW_AUTOSIZE)
+        cv2.namedWindow(self.config.window_name, cv2.WINDOW_AUTOSIZE)
 
     def _load_assets(self):
-        self.logo = self._load_image(self.config["logo_path"])
-        self.qr_code = self._load_image(self.config["qr_code_path"])
+        self.logo = self._load_image(self.config.logo_path)
+        self.qr_code = self._load_image(self.config.qr_code_path)
 
     def _load_image(self, path):
         img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
@@ -119,7 +142,7 @@ class MultiModelTrackerApp:
                     frame_to_process = self.latest_frame.copy()
 
             if frame_to_process is not None:
-                results = self.yolo_model.track(frame_to_process, persist=True, classes=0, verbose=False, conf=self.config["yolo_conf_threshold"])
+                results = self.yolo_model.track(frame_to_process, persist=True, classes=0, verbose=False, conf=self.config.yolo_conf_threshold)
                 if results and results[0].boxes and results[0].boxes.id is not None:
                     if not self.yolo_results_queue.empty():
                         try: self.yolo_results_queue.get_nowait()
@@ -182,7 +205,7 @@ class MultiModelTrackerApp:
 
     def _draw_info_text(self, frame):
         """Draws the informational text at the top of the screen."""
-        text = self.config["info_text"]
+        text = self.config.info_text
         font = cv2.FONT_HERSHEY_SIMPLEX
         text_scale, font_thickness = 1, 2
         text_size, _ = cv2.getTextSize(text, font, text_scale, font_thickness)
@@ -323,7 +346,7 @@ class MultiModelTrackerApp:
             cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
             cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
-            cv2.imshow(self.config["window_name"], display_frame)
+            cv2.imshow(self.config.window_name, display_frame)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == 27: # q or escape key
@@ -360,7 +383,8 @@ if __name__ == "__main__":
     Path("img").mkdir(exist_ok=True)
     
     try:
-        app = MultiModelTrackerApp(CONFIG)
+        config = Config()
+        app = MultiModelTrackerApp(config)
         app.run()
     except Exception as e:
         print(f"An error occurred: {e}")

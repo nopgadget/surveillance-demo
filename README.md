@@ -48,6 +48,8 @@ The application can be controlled using the following keyboard commands while th
 
 ## Getting Started
 
+### Dependencies
+
 Using a python virtual environment manager of your choice (in this example we will use conda), install the pre-reqs from requirements.txt
 
 ```
@@ -59,3 +61,24 @@ conda activate conference_demo
 
 python -m pip install -r .\requirements.txt
 ```
+
+Alternatively:
+
+```
+# Navigate to the repo
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r ./requirements.txt
+```
+
+### Configuration
+
+There is an example config in `example-config.json`.
+This file should be copied to `config.json`,
+and changes to your individual config should be made there.
+
+```
+cp example-config.json config.json
+# edit config.json
+```
+
