@@ -35,6 +35,7 @@ class Config:
 
     model_path = "models/yolo11n.pt", # Make sure you have a YOLO model file here
     yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
+    ascii_on_high_five = True  # New config option: enable ASCII effect on high five
 
     def __init__(self, config_path = "config.json"):
         if not os.path.exists(config_path):
@@ -48,6 +49,9 @@ class Config:
 
         for k, v in config_json.items():
             setattr(self, k, v)
+        # Ensure ascii_on_high_five is set (default True)
+        if not hasattr(self, 'ascii_on_high_five'):
+            self.ascii_on_high_five = True
 
 # --- MediaPipe Initialization ---
 mp_hands = mp.solutions.hands
@@ -62,6 +66,11 @@ class MultiModelTrackerApp:
         # --- Shared frame variable and a lock ---
         self.latest_frame = None
         self.frame_lock = threading.Lock()
+
+        # --- ASCII frame and lock ---
+        self.latest_ascii_frame = None
+        self.ascii_lock = threading.Lock()
+        self.ascii_request_event = threading.Event()
 
         # --- Queues are now only for results ---
         self.yolo_results_queue = queue.Queue(maxsize=1)
@@ -92,6 +101,12 @@ class MultiModelTrackerApp:
 
         self.is_recording = False
         self.video_writer = None
+
+        self.high_five_start_time = None  # Track when high five starts
+        self.high_five_active = False     # Whether ASCII effect is active
+        self.ascii_font_scale = 0.4       # Font scale for ASCII effect
+        self.ascii_cell_size = 8          # Size of each ASCII cell
+        self.ascii_chars = "@%#*+=-:. "   # Dark to light
 
     def _setup_screen(self):
         if self.config.use_small_window:
@@ -181,6 +196,22 @@ class MultiModelTrackerApp:
                 
                 time.sleep(0.02) # Prevent thread from running too fast
 
+    def _ascii_processor_thread(self):
+        """Converts frames to ASCII in a separate thread when requested."""
+        while not self.stop_event.is_set():
+            self.ascii_request_event.wait(timeout=0.1)
+            if self.stop_event.is_set():
+                break
+            frame_to_ascii = None
+            with self.frame_lock:
+                if self.latest_frame is not None:
+                    frame_to_ascii = self.latest_frame.copy()
+            if frame_to_ascii is not None:
+                ascii_frame = self._frame_to_ascii(frame_to_ascii)
+                with self.ascii_lock:
+                    self.latest_ascii_frame = ascii_frame
+            self.ascii_request_event.clear()
+
     def _is_high_five(self, hand_landmarks):
         """Checks for a high-five gesture."""
         finger_tips_ids = [
@@ -195,12 +226,6 @@ class MultiModelTrackerApp:
         for i in range(len(finger_tips_ids)):
             if hand_landmarks.landmark[finger_tips_ids[i]].y > hand_landmarks.landmark[pip_joints_ids[i]].y:
                 return False
-        thumb_ip_x = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP].x
-        index_finger_mcp_x = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_MCP].x
-        
-        x_proximity_threshold = 0.05 # This value might need tuning
-        if abs(thumb_ip_x - index_finger_mcp_x) > x_proximity_threshold:
-            return False
         return True
 
     def _draw_info_text(self, frame):
@@ -244,12 +269,35 @@ class MultiModelTrackerApp:
             
         frame[y:y+oh, x:x+ow] = roi
 
+    def _frame_to_ascii(self, frame):
+        """Convert a frame to an ASCII brightness-coded image."""
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        h, w = gray.shape
+        cell_size = self.ascii_cell_size
+        chars = self.ascii_chars
+        n_chars = len(chars)
+        out_img = np.zeros_like(frame)
+        for y in range(0, h, cell_size):
+            for x in range(0, w, cell_size):
+                cell = gray[y:y+cell_size, x:x+cell_size]
+                if cell.size == 0:
+                    continue
+                avg = int(np.mean(cell))
+                char_idx = int((avg / 255) * (n_chars - 1))
+                char = chars[char_idx]
+                cv2.putText(
+                    out_img, char, (x, y + cell_size),
+                    cv2.FONT_HERSHEY_SIMPLEX, self.ascii_font_scale, (0, 255, 0), 1, cv2.LINE_AA
+                )
+        return out_img
+
     def run(self):
         """Main application loop."""
         threads = [
             threading.Thread(target=self._frame_reader_thread),
             threading.Thread(target=self._yolo_processor_thread),
-            threading.Thread(target=self._hand_processor_thread)
+            threading.Thread(target=self._hand_processor_thread),
+            threading.Thread(target=self._ascii_processor_thread)
         ]
         for t in threads:
             t.daemon = True
@@ -293,6 +341,7 @@ class MultiModelTrackerApp:
                 pass
             
             high_five_count = 0
+            high_five_detected = False
             # --- Green DrawingSpec for high five ---
             green_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4)
             if last_hand_results and last_hand_results.multi_hand_landmarks:
@@ -303,12 +352,42 @@ class MultiModelTrackerApp:
                             green_spec, green_spec
                         )
                         high_five_count += 1
+                        high_five_detected = True
                     else:
                         mp_drawing.draw_landmarks(
                             display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
                             mp_drawing_styles.get_default_hand_landmarks_style(),
                             mp_drawing_styles.get_default_hand_connections_style()
                         )
+
+            if high_five_count > 0:
+                text = f"{high_five_count} HIGH FIVE"
+                text += "S!" if high_five_count > 1 else "!"
+                cv2.putText(display_frame, text, (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4, cv2.LINE_AA)
+
+            # --- High five duration logic ---
+            now = time.time()
+            if high_five_detected:
+                if self.high_five_start_time is None:
+                    self.high_five_start_time = now
+                elif now - self.high_five_start_time >= 3.0:
+                    self.high_five_active = True
+            else:
+                self.high_five_start_time = None
+                self.high_five_active = False
+            # --- ASCII effect ---
+            if self.high_five_active and self.config.ascii_on_high_five:
+                # Request ASCII conversion if not already requested
+                if not self.ascii_request_event.is_set():
+                    self.ascii_request_event.set()
+                # Use the latest ASCII frame if available
+                with self.ascii_lock:
+                    if self.latest_ascii_frame is not None:
+                        display_frame = self.latest_ascii_frame.copy()
+            else:
+                # Reset ASCII frame when not in ASCII mode
+                with self.ascii_lock:
+                    self.latest_ascii_frame = None
 
             if last_yolo_results:
                 boxes = last_yolo_results.boxes.xyxy.int().cpu().tolist()
@@ -317,11 +396,6 @@ class MultiModelTrackerApp:
                     x1, y1, x2, y2 = box
                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 255, 255), 1)
                     cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
-
-            if high_five_count > 0:
-                text = f"{high_five_count} HIGH FIVE"
-                text += "S!" if high_five_count > 1 else "!"
-                cv2.putText(display_frame, text, (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4, cv2.LINE_AA)
 
             # TODO: Re-enable this when we want to show the logo and QR code
             #self._draw_info_text(display_frame)
