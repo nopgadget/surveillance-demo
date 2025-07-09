@@ -360,11 +360,6 @@ class MultiModelTrackerApp:
                             mp_drawing_styles.get_default_hand_connections_style()
                         )
 
-            if high_five_count > 0:
-                text = f"{high_five_count} HIGH FIVE"
-                text += "S!" if high_five_count > 1 else "!"
-                cv2.putText(display_frame, text, (50, 80), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 4, cv2.LINE_AA)
-
             # --- High five duration logic ---
             now = time.time()
             if high_five_detected:
