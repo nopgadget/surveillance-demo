@@ -285,9 +285,11 @@ class MultiModelTrackerApp:
                 avg = int(np.mean(cell))
                 char_idx = int((avg / 255) * (n_chars - 1))
                 char = chars[char_idx]
+                # Use grayscale for the text color
+                color = (int(avg), int(avg), int(avg))
                 cv2.putText(
                     out_img, char, (x, y + cell_size),
-                    cv2.FONT_HERSHEY_SIMPLEX, self.ascii_font_scale, (0, 255, 0), 1, cv2.LINE_AA
+                    cv2.FONT_HERSHEY_SIMPLEX, self.ascii_font_scale, color, 1, cv2.LINE_AA
                 )
         return out_img
 
