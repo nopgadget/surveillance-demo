@@ -325,8 +325,8 @@ class MultiModelTrackerApp:
 
             # TODO: Re-enable this when we want to show the logo and QR code
             #self._draw_info_text(display_frame)
-            self._overlay_image(display_frame, self.logo, position="bottom-right")
-            #self._overlay_image(display_frame, self.qr_code, position="bottom-left")
+            #self._overlay_image(display_frame, self.logo, position="bottom-right")
+            self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
             # Average FPS Tally (end of playback)
             total_frame_count += 1
