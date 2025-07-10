@@ -523,7 +523,7 @@ class MultiModelTrackerApp:
                     cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
 
             # TODO: Re-enable this when we want to show the logo and QR code
-            #self._draw_info_text(display_frame)
+            self._draw_info_text(display_frame)
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
             self._overlay_image(display_frame, self.qr_code, position="bottom-left")
 
