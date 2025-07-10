@@ -36,6 +36,7 @@ class Config:
     model_path = "models/yolo11n.pt", # Make sure you have a YOLO model file here
     yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
     ascii_on_high_five = True  # New config option: enable ASCII effect on high five
+    face_mesh_on_high_five = True  # New config option: enable face mesh overlay on high five
 
     def __init__(self, config_path = "config.json"):
         if not os.path.exists(config_path):
@@ -58,11 +59,11 @@ mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 # Add FaceMesh
-mp_face_mesh = None
 try:
     mp_face_mesh = __import__('mediapipe').solutions.face_mesh
 except Exception as e:
     print("Warning: Could not import mediapipe face_mesh:", e)
+    mp_face_mesh = None
 
 class MultiModelTrackerApp:
     def __init__(self, config):
@@ -119,6 +120,15 @@ class MultiModelTrackerApp:
         self.face_mesh = None
         if getattr(self.config, 'blackout_face_on_high_five', False) and mp_face_mesh is not None:
             self.face_mesh = mp_face_mesh.FaceMesh(
+                static_image_mode=False,
+                max_num_faces=5,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
+        # Add FaceMesh instance for overlay if enabled
+        self.face_mesh_overlay = None
+        if getattr(self.config, 'face_mesh_on_high_five', False) and mp_face_mesh is not None:
+            self.face_mesh_overlay = mp_face_mesh.FaceMesh(
                 static_image_mode=False,
                 max_num_faces=5,
                 min_detection_confidence=0.5,
@@ -363,6 +373,7 @@ class MultiModelTrackerApp:
         last_yolo_results = None
         last_hand_results = None
         last_face_mesh_results = None
+        last_face_mesh_overlay_results = None
 
         
         # FPS Counter Initialization
@@ -430,7 +441,7 @@ class MultiModelTrackerApp:
             if high_five_detected:
                 if self.high_five_start_time is None:
                     self.high_five_start_time = now
-                elif now - self.high_five_start_time >= 3.0:
+                elif now - self.high_five_start_time >= 1.0:  # 1 second for face mesh overlay
                     self.high_five_active = True
             else:
                 self.high_five_start_time = None
@@ -482,6 +493,50 @@ class MultiModelTrackerApp:
             # FPS Counter Display
             cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
             cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+            # Run FaceMesh overlay processing on the current frame if enabled
+            if self.high_five_active and getattr(self.config, 'face_mesh_on_high_five', False) and self.face_mesh_overlay is not None:
+                img_rgb_overlay = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
+                img_rgb_overlay.flags.writeable = False
+                last_face_mesh_overlay_results = self.face_mesh_overlay.process(img_rgb_overlay)
+
+            # --- Face mesh overlay on high five ---
+            if self.high_five_active and getattr(self.config, 'face_mesh_on_high_five', False):
+                if (
+                    mp_face_mesh is not None and
+                    last_face_mesh_overlay_results and
+                    hasattr(last_face_mesh_overlay_results, 'multi_face_landmarks') and
+                    last_face_mesh_overlay_results.multi_face_landmarks is not None and
+                    isinstance(last_face_mesh_overlay_results.multi_face_landmarks, (list, tuple))
+                ):
+                    def filter_connections(connections, num_landmarks):
+                        return [conn for conn in connections if max(conn) < num_landmarks]
+                    for face_landmarks in list(last_face_mesh_overlay_results.multi_face_landmarks):
+                        num_landmarks = len(face_landmarks.landmark)
+                        tess = filter_connections(mp_face_mesh.FACEMESH_TESSELATION, num_landmarks)
+                        contours = filter_connections(mp_face_mesh.FACEMESH_CONTOURS, num_landmarks)
+                        irises = filter_connections(mp_face_mesh.FACEMESH_IRISES, num_landmarks)
+                        mp_drawing.draw_landmarks(
+                            image=display_frame,
+                            landmark_list=face_landmarks,
+                            connections=tess,
+                            landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0,255,255), thickness=1, circle_radius=1),
+                            connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,255,0), thickness=1, circle_radius=1)
+                        )
+                        mp_drawing.draw_landmarks(
+                            image=display_frame,
+                            landmark_list=face_landmarks,
+                            connections=contours,
+                            landmark_drawing_spec=None,
+                            connection_drawing_spec=mp_drawing.DrawingSpec(color=(255,0,0), thickness=1, circle_radius=1)
+                        )
+                        mp_drawing.draw_landmarks(
+                            image=display_frame,
+                            landmark_list=face_landmarks,
+                            connections=irises,
+                            landmark_drawing_spec=None,
+                            connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,0,255), thickness=1, circle_radius=1)
+                        )
 
             cv2.imshow(self.config.window_name, display_frame)
 
