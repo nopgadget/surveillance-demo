@@ -37,10 +37,10 @@ class Config:
     logo_path = "img/odplogo.png",
     qr_code_path = "img/qr-code.png",
 
-    model_path = "models/yolo11n.pt", # Make sure you have a YOLO model file here
+    model_path = "models/yolo11n.pt",
     yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
-    ascii_on_high_five = True  # New config option: enable ASCII effect on high five
-    face_mesh_on_high_five = True  # New config option: enable face mesh overlay on high five
+    ascii_on_high_five = True
+    face_mesh_on_high_five = True
 
     def __init__(self, config_path = "config.json"):
         if not os.path.exists(config_path):
