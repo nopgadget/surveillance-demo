@@ -8,9 +8,13 @@ import cvzone
 import screeninfo
 from pathlib import Path
 import mediapipe as mp
+from mediapipe.python.solutions import drawing_utils as mp_drawing
+from mediapipe.python.solutions import drawing_styles as mp_drawing_styles
+from mediapipe.python.solutions import pose as mp_pose
 import torch
 import json
 import os
+from mediapipe.framework.formats import landmark_pb2
 
 # --- Configuration ---
 class Config:
@@ -56,8 +60,7 @@ class Config:
 
 # --- MediaPipe Initialization ---
 mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
+# mp_drawing, mp_drawing_styles, mp_pose already imported above
 # Add FaceMesh
 try:
     mp_face_mesh = __import__('mediapipe').solutions.face_mesh
@@ -84,6 +87,8 @@ class MultiModelTrackerApp:
         self.hand_results_queue = queue.Queue(maxsize=1)
         # Add FaceMesh queue if blackout is enabled
         self.face_results_queue = queue.Queue(maxsize=1) if getattr(self.config, 'blackout_face_on_high_five', False) else None
+        # Add Pose queue
+        self.pose_results_queue = queue.Queue(maxsize=1)
 
         # --- Load Assets & Models ---
         self._setup_screen()
@@ -134,6 +139,14 @@ class MultiModelTrackerApp:
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5
             )
+        # Add Pose instance
+        self.pose = mp_pose.Pose(
+            static_image_mode=False,
+            model_complexity=1,
+            enable_segmentation=False,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
 
     def _setup_screen(self):
         if self.config.use_small_window:
@@ -355,6 +368,23 @@ class MultiModelTrackerApp:
                 cv2.fillConvexPoly(frame, hull, (0, 0, 0))
         return frame
 
+    def _pose_processor_thread(self):
+        """Processes frames with MediaPipe Pose by accessing the shared frame."""
+        while not self.stop_event.is_set():
+            frame_to_process = None
+            with self.frame_lock:
+                if self.latest_frame is not None:
+                    frame_to_process = self.latest_frame.copy()
+            if frame_to_process is not None:
+                img_rgb = cv2.cvtColor(frame_to_process, cv2.COLOR_BGR2RGB)
+                img_rgb.flags.writeable = False
+                results = self.pose.process(img_rgb)
+                if not self.pose_results_queue.empty():
+                    try: self.pose_results_queue.get_nowait()
+                    except queue.Empty: pass
+                self.pose_results_queue.put(results)
+            time.sleep(0.02)
+
     def run(self):
         """Main application loop."""
         threads = [
@@ -366,6 +396,8 @@ class MultiModelTrackerApp:
         # Add FaceMesh thread if blackout is enabled
         if getattr(self.config, 'blackout_face_on_high_five', False) and self.face_mesh is not None:
             threads.append(threading.Thread(target=self._face_mesh_processor_thread))
+        # Add Pose thread
+        threads.append(threading.Thread(target=self._pose_processor_thread))
         for t in threads:
             t.daemon = True
             t.start()
@@ -374,6 +406,7 @@ class MultiModelTrackerApp:
         last_hand_results = None
         last_face_mesh_results = None
         last_face_mesh_overlay_results = None
+        last_pose_results = None
 
         
         # FPS Counter Initialization
@@ -413,6 +446,13 @@ class MultiModelTrackerApp:
             if getattr(self.config, 'blackout_face_on_high_five', False) and self.face_results_queue is not None:
                 try:
                     last_face_mesh_results = self.face_results_queue.get_nowait()
+                except queue.Empty:
+                    pass
+
+            # Get Pose results
+            if self.pose_results_queue is not None:
+                try:
+                    last_pose_results = self.pose_results_queue.get_nowait()
                 except queue.Empty:
                     pass
 
@@ -537,6 +577,27 @@ class MultiModelTrackerApp:
                             landmark_drawing_spec=None,
                             connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,0,255), thickness=1, circle_radius=1)
                         )
+
+            # --- Draw pose landmarks and connections ---
+            if last_pose_results and last_pose_results.pose_landmarks:
+                # Only draw body pose (landmarks 11-32, skip 0-10)
+                # Filter connections to only those with both indices >= 11 and <= 32
+                body_connections = [conn for conn in list(mp_pose.POSE_CONNECTIONS) if min(conn) >= 11 and max(conn) <= 32]
+                NormalizedLandmarkList = getattr(landmark_pb2, 'NormalizedLandmarkList')
+                # Shift indices so that landmark 11 becomes 0 in the new list
+                all_landmarks = last_pose_results.pose_landmarks.landmark
+                body_landmarks = NormalizedLandmarkList(
+                    landmark=all_landmarks[11:33]
+                )
+                # Remap connections to new indices (subtract 11)
+                remapped_connections = [(a-11, b-11) for (a, b) in body_connections]
+                mp_drawing.draw_landmarks(
+                    image=display_frame,
+                    landmark_list=body_landmarks,
+                    connections=remapped_connections,
+                    landmark_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2),
+                    connection_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2)
+                )
 
             cv2.imshow(self.config.window_name, display_frame)
 
