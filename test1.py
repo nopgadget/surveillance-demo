@@ -57,6 +57,12 @@ class Config:
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
+# Add FaceMesh
+mp_face_mesh = None
+try:
+    mp_face_mesh = __import__('mediapipe').solutions.face_mesh
+except Exception as e:
+    print("Warning: Could not import mediapipe face_mesh:", e)
 
 class MultiModelTrackerApp:
     def __init__(self, config):
@@ -75,6 +81,8 @@ class MultiModelTrackerApp:
         # --- Queues are now only for results ---
         self.yolo_results_queue = queue.Queue(maxsize=1)
         self.hand_results_queue = queue.Queue(maxsize=1)
+        # Add FaceMesh queue if blackout is enabled
+        self.face_results_queue = queue.Queue(maxsize=1) if getattr(self.config, 'blackout_face_on_high_five', False) else None
 
         # --- Load Assets & Models ---
         self._setup_screen()
@@ -107,6 +115,15 @@ class MultiModelTrackerApp:
         self.ascii_font_scale = 0.4       # Font scale for ASCII effect
         self.ascii_cell_size = 8          # Size of each ASCII cell
         self.ascii_chars = "@%#*+=-:. "   # Dark to light
+        # Add FaceMesh instance if blackout is enabled
+        self.face_mesh = None
+        if getattr(self.config, 'blackout_face_on_high_five', False) and mp_face_mesh is not None:
+            self.face_mesh = mp_face_mesh.FaceMesh(
+                static_image_mode=False,
+                max_num_faces=5,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
 
     def _setup_screen(self):
         if self.config.use_small_window:
@@ -293,6 +310,41 @@ class MultiModelTrackerApp:
                 )
         return out_img
 
+    def _face_mesh_processor_thread(self):
+        """Processes frames with MediaPipe FaceMesh by accessing the shared frame."""
+        if self.face_mesh is None or self.face_results_queue is None:
+            return
+        while not self.stop_event.is_set():
+            frame_to_process = None
+            with self.frame_lock:
+                if self.latest_frame is not None:
+                    frame_to_process = self.latest_frame.copy()
+            if frame_to_process is not None:
+                img_rgb = cv2.cvtColor(frame_to_process, cv2.COLOR_BGR2RGB)
+                img_rgb.flags.writeable = False
+                results = self.face_mesh.process(img_rgb)
+                if not self.face_results_queue.empty():
+                    try: self.face_results_queue.get_nowait()
+                    except queue.Empty: pass
+                self.face_results_queue.put(results)
+            time.sleep(0.02)
+
+    def _blackout_faces(self, frame, face_mesh_results):
+        """Black out faces in the frame using the convex hull of FaceMesh landmarks."""
+        if face_mesh_results is None or not face_mesh_results.multi_face_landmarks:
+            return frame
+        for face_landmarks in face_mesh_results.multi_face_landmarks:
+            points = []
+            h, w, _ = frame.shape
+            for lm in face_landmarks.landmark:
+                x, y = int(lm.x * w), int(lm.y * h)
+                points.append([x, y])
+            points = np.array(points, dtype=np.int32)
+            if points.shape[0] > 0:
+                hull = cv2.convexHull(points)
+                cv2.fillConvexPoly(frame, hull, (0, 0, 0))
+        return frame
+
     def run(self):
         """Main application loop."""
         threads = [
@@ -301,12 +353,16 @@ class MultiModelTrackerApp:
             threading.Thread(target=self._hand_processor_thread),
             threading.Thread(target=self._ascii_processor_thread)
         ]
+        # Add FaceMesh thread if blackout is enabled
+        if getattr(self.config, 'blackout_face_on_high_five', False) and self.face_mesh is not None:
+            threads.append(threading.Thread(target=self._face_mesh_processor_thread))
         for t in threads:
             t.daemon = True
             t.start()
         
         last_yolo_results = None
         last_hand_results = None
+        last_face_mesh_results = None
 
         
         # FPS Counter Initialization
@@ -342,6 +398,13 @@ class MultiModelTrackerApp:
             except queue.Empty:
                 pass
             
+            # Get FaceMesh results if blackout is enabled
+            if getattr(self.config, 'blackout_face_on_high_five', False) and self.face_results_queue is not None:
+                try:
+                    last_face_mesh_results = self.face_results_queue.get_nowait()
+                except queue.Empty:
+                    pass
+
             high_five_count = 0
             high_five_detected = False
             # --- Green DrawingSpec for high five ---
@@ -385,6 +448,9 @@ class MultiModelTrackerApp:
                 # Reset ASCII frame when not in ASCII mode
                 with self.ascii_lock:
                     self.latest_ascii_frame = None
+            # --- Blackout face on high five ---
+            if self.high_five_active and getattr(self.config, 'blackout_face_on_high_five', False):
+                display_frame = self._blackout_faces(display_frame, last_face_mesh_results)
 
             if last_yolo_results:
                 boxes = last_yolo_results.boxes.xyxy.int().cpu().tolist()

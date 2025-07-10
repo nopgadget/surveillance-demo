@@ -11,5 +11,6 @@
     "qr_code_path": "img/qr-code.png",
     "model_path": "models/yolo11n.pt",
     "yolo_conf_threshold": 0.3,
-    "ascii_on_high_five": true  // Set to false to disable ASCII effect on high five
+    "ascii_on_high_five": true,
+    "blackout_face_on_high_five": true
 }
