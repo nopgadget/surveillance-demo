@@ -571,8 +571,8 @@ class MultiModelTrackerApp:
                             image=display_frame,
                             landmark_list=face_landmarks,
                             connections=tess,
-                            landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0,255,255), thickness=1, circle_radius=1),
-                            connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,255,0), thickness=1, circle_radius=1)
+                            landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0,100,255), thickness=1, circle_radius=1),
+                            connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,175,0), thickness=1, circle_radius=1)
                         )
                         mp_drawing.draw_landmarks(
                             image=display_frame,
