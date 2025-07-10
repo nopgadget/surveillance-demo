@@ -98,15 +98,18 @@ class MultiModelTrackerApp:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Using device: {self.device}")
 
-        # --- Prefer ONNX model if present ---
+        # --- Model selection logic: Prefer CUDA, then ONNX, then CPU ---
         onnx_path = os.path.join('models', 'yolo11n.onnx')
         pt_path = self.config.model_path
-        if os.path.exists(onnx_path):
-            print(f"Using ONNX model: {onnx_path}")
+        if torch.cuda.is_available():
+            print(f"CUDA is available. Using PyTorch model on CUDA: {pt_path}")
+            self.yolo_model = YOLO(pt_path).to('cuda')
+        elif os.path.exists(onnx_path):
+            print(f"CUDA not available. Using ONNX model: {onnx_path}")
             self.yolo_model = YOLO(onnx_path)
         else:
-            print(f"Using PyTorch model: {pt_path}")
-            self.yolo_model = YOLO(pt_path).to(self.device)
+            print(f"CUDA not available and ONNX model not found. Using PyTorch model on CPU: {pt_path}")
+            self.yolo_model = YOLO(pt_path).to('cpu')
         
         # --- Video Source ---
         source = None
