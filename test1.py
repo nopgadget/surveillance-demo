@@ -97,8 +97,16 @@ class MultiModelTrackerApp:
         # Determine device
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Using device: {self.device}")
-        
-        self.yolo_model = YOLO(self.config.model_path).to(self.device)
+
+        # --- Prefer ONNX model if present ---
+        onnx_path = os.path.join('models', 'yolo11n.onnx')
+        pt_path = self.config.model_path
+        if os.path.exists(onnx_path):
+            print(f"Using ONNX model: {onnx_path}")
+            self.yolo_model = YOLO(onnx_path)
+        else:
+            print(f"Using PyTorch model: {pt_path}")
+            self.yolo_model = YOLO(pt_path).to(self.device)
         
         # --- Video Source ---
         source = None
