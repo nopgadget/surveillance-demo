@@ -580,21 +580,24 @@ class MultiModelTrackerApp:
 
             # --- Draw pose landmarks and connections ---
             if last_pose_results and last_pose_results.pose_landmarks:
-                # Only draw body pose (landmarks 11-32, skip 0-10)
-                # Filter connections to only those with both indices >= 11 and <= 32
-                body_connections = [conn for conn in list(mp_pose.POSE_CONNECTIONS) if min(conn) >= 11 and max(conn) <= 32]
+                # Draw up to the wrists (shoulders, elbows, wrists, torso, legs), exclude hand/finger landmarks (17-22)
+                pose_indices = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+                index_map = {orig_idx: i for i, orig_idx in enumerate(pose_indices)}
+                # Filter connections to only those with both indices in pose_indices
+                pose_connections = [
+                    (index_map[a], index_map[b])
+                    for (a, b) in list(mp_pose.POSE_CONNECTIONS)
+                    if a in pose_indices and b in pose_indices
+                ]
                 NormalizedLandmarkList = getattr(landmark_pb2, 'NormalizedLandmarkList')
-                # Shift indices so that landmark 11 becomes 0 in the new list
                 all_landmarks = last_pose_results.pose_landmarks.landmark
-                body_landmarks = NormalizedLandmarkList(
-                    landmark=all_landmarks[11:33]
+                pose_landmarks = NormalizedLandmarkList(
+                    landmark=[all_landmarks[i] for i in pose_indices]
                 )
-                # Remap connections to new indices (subtract 11)
-                remapped_connections = [(a-11, b-11) for (a, b) in body_connections]
                 mp_drawing.draw_landmarks(
                     image=display_frame,
-                    landmark_list=body_landmarks,
-                    connections=remapped_connections,
+                    landmark_list=pose_landmarks,
+                    connections=pose_connections,
                     landmark_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2),
                     connection_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2)
                 )
