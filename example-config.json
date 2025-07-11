@@ -6,7 +6,7 @@
     "video_path": "vid/hongdae.mp4",
     "window_name": "Multi-Tracking Demo",
     "use_small_window": false,
-    "info_text": "Live video processing only. No data is retained, stored or shared.",
+    "info_text": "No data is retained, stored or shared. Hold up hand for additional effects.",
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
     "model_path": "models/yolo11n.pt",
