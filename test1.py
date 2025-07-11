@@ -27,7 +27,7 @@ class Config:
     use_webcam = False,
     webcam_id = 0,
 
-    use_video_file = False, # Set to True to process a video file
+    use_video_file = False,
     video_path = "vid/hongdae.mp4", # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
 
     use_small_window = False,
