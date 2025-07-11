@@ -32,7 +32,7 @@ class Config:
 
     use_small_window = False,
     window_name = "Multi-Tracking Demo",
-    info_text = "Live video processing only. No data is retained, stored or shared.",
+    info_text = "Live video processing only. No data is retained, stored or shared. Hold up hand for additional effects.",
 
     logo_path = "img/odplogo.png",
     qr_code_path = "img/qr-code.png",
