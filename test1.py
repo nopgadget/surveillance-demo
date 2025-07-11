@@ -424,7 +424,7 @@ class MultiModelTrackerApp:
         TIME_DIFF_MAX = 0.5 # update FPS counter every X seconds
         fps_string = "FPS: N/A"
         fps_w, fps_h = cv2.getTextSize(fps_string, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
-        fps_x, fps_y = (self.width - self.width // 4, 80)
+        fps_x, fps_y = (self.width - self.width // 10, self.height - 40)
         frame_count_in_time_diff = 0.0
         new_frame_time = 0.0
         prev_frame_time = time.time()
