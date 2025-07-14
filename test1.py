@@ -738,7 +738,7 @@ class MultiModelTrackerApp:
                 for box, track_id in zip(boxes, track_ids):
                     x1, y1, x2, y2 = box
                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 255, 255), 1)
-                    cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=1, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
+                    cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
 
             # TODO: Re-enable this when we want to show the logo and QR code
             self._draw_info_text(display_frame)
