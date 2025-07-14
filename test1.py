@@ -102,7 +102,8 @@ class MultiModelTrackerApp:
             'ascii_effect': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
             'face_mesh': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
             'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
-            'face_blackout': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'}
+            'face_blackout': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
+            'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'}
         }
         
         # Checkbox visibility state
@@ -788,8 +789,9 @@ class MultiModelTrackerApp:
                 fps_w, fps_h = cv2.getTextSize(fps_string, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
 
             # FPS Counter Display
-            cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
-            cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+            if self.checkboxes['fps_counter']['checked']:
+                cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
+                cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
             # --- Overlay face on high five (after ASCII effect) ---
             if (self.high_five_active and 
