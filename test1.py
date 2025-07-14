@@ -141,6 +141,12 @@ class MultiModelTrackerApp:
         self.ascii_font_scale = 0.4       # Font scale for ASCII effect
         self.ascii_cell_size = 8          # Size of each ASCII cell
         self.ascii_chars = "@%#*+=-:. "   # Dark to light
+        
+        # Haptic text variables
+        self.haptic_text = None
+        self.haptic_text_start_time = None
+        self.haptic_text_duration = 3.0  # Duration in seconds
+        self.haptic_text_alpha = 0.0     # For fade effect
         # Add FaceMesh instance for blackout
         self.face_mesh = None
         if mp_face_mesh is not None:
@@ -382,6 +388,75 @@ class MultiModelTrackerApp:
         fade = 0.5 * (1 + np.sin(time.time() * 2))
         color = (int(fade * 230), int(fade * 216), int(fade * 173)) # BGR
         cv2.putText(frame, text, (text_x, text_y), font, text_scale, color, font_thickness, cv2.LINE_AA)
+
+    def _draw_haptic_text(self, frame):
+        """Draws haptic text messages on the left side of the screen."""
+        if self.haptic_text is None or self.haptic_text_start_time is None:
+            return
+            
+        current_time = time.time()
+        elapsed_time = current_time - self.haptic_text_start_time
+        
+        if elapsed_time > self.haptic_text_duration:
+            # Clear the haptic text
+            self.haptic_text = None
+            self.haptic_text_start_time = None
+            self.haptic_text_alpha = 0.0
+            return
+            
+        # Calculate alpha for fade in/out effect
+        if elapsed_time < 0.5:
+            # Fade in
+            self.haptic_text_alpha = elapsed_time / 0.5
+        elif elapsed_time > self.haptic_text_duration - 0.5:
+            # Fade out
+            self.haptic_text_alpha = (self.haptic_text_duration - elapsed_time) / 0.5
+        else:
+            # Full opacity
+            self.haptic_text_alpha = 1.0
+            
+        # Clamp alpha to 0-1
+        self.haptic_text_alpha = max(0.0, min(1.0, self.haptic_text_alpha))
+        
+        # Draw the text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_scale = 0.4  # Reduced from 1.2 to 0.24 (1/5 of original size)
+        font_thickness = 1  # Reduced from 3 to 1 for smaller text
+        
+        # Calculate text size and position (left side, vertically centered)
+        text_size, _ = cv2.getTextSize(self.haptic_text, font, text_scale, font_thickness)
+        text_x = 50  # Left margin
+        text_y = (frame.shape[0] + text_size[1]) // 2  # Vertically centered
+        
+        # Draw background rectangle for better visibility
+        bg_padding = 20
+        bg_alpha = self.haptic_text_alpha * 0.7  # Slightly transparent background
+        bg_color = (int(0 * bg_alpha), int(0 * bg_alpha), int(0 * bg_alpha))  # Black background
+        
+        # Create background rectangle
+        bg_x1 = text_x - bg_padding
+        bg_y1 = text_y - text_size[1] - bg_padding
+        bg_x2 = text_x + text_size[0] + bg_padding
+        bg_y2 = text_y + bg_padding
+        
+        # Draw background with alpha blending
+        roi = frame[bg_y1:bg_y2, bg_x1:bg_x2]
+        if roi.size > 0:
+            blended_bg = cv2.addWeighted(roi, 1 - bg_alpha, np.full_like(roi, bg_color), bg_alpha, 0)
+            frame[bg_y1:bg_y2, bg_x1:bg_x2] = blended_bg
+        
+        # Draw text with alpha blending
+        text_color = (0, 255, 0)  # Green text
+        text_color_with_alpha = tuple(int(c * self.haptic_text_alpha) for c in text_color)
+        
+        cv2.putText(frame, self.haptic_text, (text_x, text_y), font, text_scale, 
+                   text_color_with_alpha, font_thickness, cv2.LINE_AA)
+
+    def _show_haptic_text(self, message):
+        """Shows a haptic text message."""
+        self.haptic_text = message
+        self.haptic_text_start_time = time.time()
+        self.haptic_text_alpha = 0.0
         
     def _overlay_image(self, frame, overlay_img, position="bottom-right", margin=10):
         """Overlays a (potentially transparent) image on the frame."""
@@ -579,10 +654,18 @@ class MultiModelTrackerApp:
                 if self.high_five_start_time is None:
                     self.high_five_start_time = now
                 elif now - self.high_five_start_time >= 1.0:  # 1 second for face mesh overlay
-                    self.high_five_active = True
+                    if not self.high_five_active:
+                        self.high_five_active = True
+                        self._show_haptic_text("Effects enabled due to high five!")
             else:
-                self.high_five_start_time = None
-                self.high_five_active = False
+                if self.high_five_start_time is not None:
+                    self.high_five_start_time = None
+                    if self.high_five_active:
+                        self.high_five_active = False
+                        self._show_haptic_text("Effects disabled due to no high five")
+                    else:
+                        self.high_five_start_time = None
+                        self.high_five_active = False
             # --- ASCII effect ---
             if (self.high_five_active and 
                 self.checkboxes['ascii_effect']['checked']):
@@ -723,6 +806,9 @@ class MultiModelTrackerApp:
                             mp_drawing_styles.get_default_hand_landmarks_style(),
                             mp_drawing_styles.get_default_hand_connections_style()
                         )
+
+            # --- Draw haptic text (on top of everything) ---
+            self._draw_haptic_text(display_frame)
 
             cv2.imshow(self.config.window_name, display_frame)
 
