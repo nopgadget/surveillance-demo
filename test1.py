@@ -16,18 +16,21 @@ import json
 import os
 from mediapipe.framework.formats import landmark_pb2
 
+SOURCE_RTSP = "rtsp"
+SOURCE_WEBCAM = "webcam"
+SOURCE_VIDEO = "video"
+
 # --- Configuration ---
 class Config:
     # all of the properties below are overwritten by config.json or example-config.json
     # these are the default values found in example-config.json
     # to modify these values, copy example-config.json to config.json and modify them there
 
+    stream_source = SOURCE_RTSP
+    """Possible values: rtsp, webcam, video"""
+
     rtsp_url = "rtsp://192.168.1.109:554/0/0/0" # default opencv stream
-
-    use_webcam = False,
     webcam_id = 0,
-
-    use_video_file = False,
     video_path = "vid/hongdae.mp4", # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
 
     use_small_window = False,
@@ -37,7 +40,9 @@ class Config:
     logo_path = "img/odplogo.png",
     qr_code_path = "img/qr-code.png",
 
-    model_path = "models/yolo11n.pt",
+    model_path = "models/yolo11n",
+    """Model path shouldn't include extension, it will be automatically determined"""
+
     yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
 
     def __init__(self, config_path = "config.json"):
@@ -64,8 +69,8 @@ except Exception as e:
     mp_face_mesh = None
 
 class MultiModelTrackerApp:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, config: Config):
+        self.config: Config = config
         self.stop_event = threading.Event()
 
         # --- Shared frame variable and a lock ---
@@ -103,13 +108,9 @@ class MultiModelTrackerApp:
         self._setup_screen()
         self._load_assets()
         
-        # Determine device
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        print(f"Using device: {self.device}")
-
         # --- Model selection logic: Prefer CUDA, then ONNX, then CPU ---
-        onnx_path = os.path.join('models', 'yolo11n.onnx')
-        pt_path = self.config.model_path
+        onnx_path = self.config.model_path + ".onnx"
+        pt_path = self.config.model_path + ".pt"
         if torch.cuda.is_available():
             print(f"CUDA is available. Using PyTorch model on CUDA: {pt_path}")
             self.yolo_model = YOLO(pt_path).to('cuda')
@@ -122,12 +123,14 @@ class MultiModelTrackerApp:
         
         # --- Video Source ---
         source = None
-        if self.config.use_webcam:
+        if self.config.stream_source == SOURCE_WEBCAM:
             source = self.config.webcam_id
-        elif self.config.use_video_file:
+        elif self.config.stream_source == SOURCE_VIDEO:
             source = self.config.video_path
-        else:
+        elif self.config.stream_source == SOURCE_RTSP:
             source = self.config.rtsp_url
+        else:
+            raise RuntimeError(f"Unsupported video source (use rtsp, webcam, or video): {self.config.stream_source}")
             
         self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
