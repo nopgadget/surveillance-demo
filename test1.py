@@ -39,8 +39,6 @@ class Config:
 
     model_path = "models/yolo11n.pt",
     yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
-    ascii_on_high_five = True
-    face_mesh_on_high_five = True
 
     def __init__(self, config_path = "config.json"):
         if not os.path.exists(config_path):
@@ -54,9 +52,6 @@ class Config:
 
         for k, v in config_json.items():
             setattr(self, k, v)
-        # Ensure ascii_on_high_five is set (default True)
-        if not hasattr(self, 'ascii_on_high_five'):
-            self.ascii_on_high_five = True
 
 # --- MediaPipe Initialization ---
 mp_hands = mp.solutions.hands
@@ -85,8 +80,8 @@ class MultiModelTrackerApp:
         # --- Queues are now only for results ---
         self.yolo_results_queue = queue.Queue(maxsize=1)
         self.hand_results_queue = queue.Queue(maxsize=1)
-        # Add FaceMesh queue if blackout is enabled
-        self.face_results_queue = queue.Queue(maxsize=1) if getattr(self.config, 'blackout_face_on_high_five', False) else None
+        # Add FaceMesh queue for blackout
+        self.face_results_queue = queue.Queue(maxsize=1)
         # Add Pose queue
         self.pose_results_queue = queue.Queue(maxsize=1)
 
@@ -146,18 +141,18 @@ class MultiModelTrackerApp:
         self.ascii_font_scale = 0.4       # Font scale for ASCII effect
         self.ascii_cell_size = 8          # Size of each ASCII cell
         self.ascii_chars = "@%#*+=-:. "   # Dark to light
-        # Add FaceMesh instance if blackout is enabled
+        # Add FaceMesh instance for blackout
         self.face_mesh = None
-        if getattr(self.config, 'blackout_face_on_high_five', False) and mp_face_mesh is not None:
+        if mp_face_mesh is not None:
             self.face_mesh = mp_face_mesh.FaceMesh(
                 static_image_mode=False,
                 max_num_faces=5,
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5
             )
-        # Add FaceMesh instance for overlay if enabled
+        # Add FaceMesh instance for overlay
         self.face_mesh_overlay = None
-        if getattr(self.config, 'face_mesh_on_high_five', False) and mp_face_mesh is not None:
+        if mp_face_mesh is not None:
             self.face_mesh_overlay = mp_face_mesh.FaceMesh(
                 static_image_mode=False,
                 max_num_faces=5,
@@ -504,8 +499,8 @@ class MultiModelTrackerApp:
             threading.Thread(target=self._hand_processor_thread),
             threading.Thread(target=self._ascii_processor_thread)
         ]
-        # Add FaceMesh thread if blackout is enabled
-        if getattr(self.config, 'blackout_face_on_high_five', False) and self.face_mesh is not None:
+        # Add FaceMesh thread
+        if self.face_mesh is not None:
             threads.append(threading.Thread(target=self._face_mesh_processor_thread))
         # Add Pose thread
         threads.append(threading.Thread(target=self._pose_processor_thread))
@@ -553,8 +548,8 @@ class MultiModelTrackerApp:
             except queue.Empty:
                 pass
             
-            # Get FaceMesh results if blackout is enabled
-            if getattr(self.config, 'blackout_face_on_high_five', False) and self.face_results_queue is not None:
+            # Get FaceMesh results
+            if self.face_results_queue is not None:
                 try:
                     last_face_mesh_results = self.face_results_queue.get_nowait()
                 except queue.Empty:
@@ -590,7 +585,6 @@ class MultiModelTrackerApp:
                 self.high_five_active = False
             # --- ASCII effect ---
             if (self.high_five_active and 
-                self.config.ascii_on_high_five and 
                 self.checkboxes['ascii_effect']['checked']):
                 # Request ASCII conversion if not already requested
                 if not self.ascii_request_event.is_set():
@@ -638,12 +632,11 @@ class MultiModelTrackerApp:
 
             # --- Blackout face on high five (after ASCII effect) ---
             if (self.high_five_active and 
-                getattr(self.config, 'blackout_face_on_high_five', False) and
                 self.checkboxes['face_blackout']['checked']):
                 display_frame = self._blackout_faces(display_frame, last_face_mesh_results)
 
             # Run FaceMesh overlay processing on the original frame if enabled
-            if self.high_five_active and getattr(self.config, 'face_mesh_on_high_five', False) and self.face_mesh_overlay is not None:
+            if self.high_five_active and self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
                 # Process on the original frame, not the ASCII frame
                 with self.frame_lock:
                     if self.latest_frame is not None:
@@ -654,7 +647,6 @@ class MultiModelTrackerApp:
 
             # --- Face mesh overlay on high five ---
             if (self.high_five_active and 
-                getattr(self.config, 'face_mesh_on_high_five', False) and
                 self.checkboxes['face_mesh']['checked']):
                 if (
                     mp_face_mesh is not None and

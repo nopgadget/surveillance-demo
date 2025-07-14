@@ -10,8 +10,5 @@
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
     "model_path": "models/yolo11n.pt",
-    "yolo_conf_threshold": 0.3,
-    "ascii_on_high_five": true,
-    "blackout_face_on_high_five": true,
-    "face_mesh_on_high_five": true
+    "yolo_conf_threshold": 0.3
 }
