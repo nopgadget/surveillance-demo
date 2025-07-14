@@ -45,6 +45,7 @@ pyaml==25.1.0
 pyasn1==0.6.1
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
+pytomlpp==1.0.13
 pytubefix==8.12.3
 pytz==2025.2
 PyYAML==6.0.2
