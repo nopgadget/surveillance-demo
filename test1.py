@@ -101,7 +101,8 @@ class MultiModelTrackerApp:
             'pose_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
             'ascii_effect': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
             'face_mesh': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
-            'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Overlay'}
+            'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
+            'face_blackout': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'}
         }
         
         # Checkbox visibility state
@@ -243,10 +244,9 @@ class MultiModelTrackerApp:
             if (qr_x <= x <= qr_x + qr_ow and qr_y <= y <= qr_y + qr_oh):
                 self.checkboxes_visible = not self.checkboxes_visible
                 print(f"Checkboxes: {'visible' if self.checkboxes_visible else 'hidden'}")
-                return
             
-            # Only check checkbox clicks if checkboxes are visible
-            if self.checkboxes_visible:
+            # Check checkbox clicks if checkboxes are visible
+            elif self.checkboxes_visible:
                 for feature_name, checkbox in self.checkboxes.items():
                     checkbox_x, checkbox_y, checkbox_w, checkbox_h = checkbox['rect']
                     if (checkbox_x <= x <= checkbox_x + checkbox_w and 
@@ -603,6 +603,31 @@ class MultiModelTrackerApp:
                     
         return frame
 
+    def _blackout_faces(self, frame, face_mesh_results):
+        """Blackout detected faces using the convex hull of FaceMesh landmarks."""
+        if face_mesh_results is None or not face_mesh_results.multi_face_landmarks:
+            return frame
+            
+        for face_landmarks in face_mesh_results.multi_face_landmarks:
+            points = []
+            h, w, _ = frame.shape
+            for lm in face_landmarks.landmark:
+                x, y = int(lm.x * w), int(lm.y * h)
+                points.append([x, y])
+            points = np.array(points, dtype=np.int32)
+            if points.shape[0] > 0:
+                hull = cv2.convexHull(points)
+                
+                # Create a black mask for the face region
+                mask = np.zeros((h, w), dtype=np.uint8)
+                cv2.fillConvexPoly(mask, hull, 255)
+                
+                # Apply black color to the face region
+                black_color = (0, 0, 0)  # BGR format: black
+                frame[mask > 0] = black_color
+                    
+        return frame
+
     def _pose_processor_thread(self):
         """Processes frames with MediaPipe Pose by accessing the shared frame."""
         while not self.stop_event.is_set():
@@ -770,6 +795,11 @@ class MultiModelTrackerApp:
             if (self.high_five_active and 
                 self.checkboxes['face_overlay']['checked']):
                 display_frame = self._overlay_faces(display_frame, last_face_mesh_results)
+
+            # --- Face blackout on high five (before face mesh) ---
+            if (self.high_five_active and 
+                self.checkboxes['face_blackout']['checked']):
+                display_frame = self._blackout_faces(display_frame, last_face_mesh_results)
 
             # Run FaceMesh overlay processing on the original frame if enabled
             if self.high_five_active and self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
