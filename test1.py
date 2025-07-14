@@ -90,6 +90,20 @@ class MultiModelTrackerApp:
         # Add Pose queue
         self.pose_results_queue = queue.Queue(maxsize=1)
 
+        # --- Checkbox states for different features ---
+        # Initialize with placeholder positions, will be updated after screen setup
+        self.checkboxes = {
+            'yolo_tracking': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'YOLO Tracking'},
+            'hand_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Hand Detection'},
+            'pose_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
+            'ascii_effect': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
+            'face_mesh': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
+            'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'}
+        }
+        
+        # Checkbox visibility state
+        self.checkboxes_visible = True
+
         # --- Load Assets & Models ---
         self._setup_screen()
         self._load_assets()
@@ -172,6 +186,87 @@ class MultiModelTrackerApp:
             self.width, self.height = 1280, 720
 
         cv2.namedWindow(self.config.window_name, cv2.WINDOW_AUTOSIZE)
+        # Set mouse callback for checkbox interaction
+        cv2.setMouseCallback(self.config.window_name, self._mouse_callback)
+        
+        # Update checkbox positions after screen dimensions are known
+        self._update_checkbox_positions()
+
+    def _update_checkbox_positions(self):
+        """Update checkbox positions to be on the right side, vertically centered."""
+        checkbox_width = 20
+        checkbox_height = 20
+        label_margin = 10
+        checkbox_spacing = 40  # Vertical spacing between checkboxes
+        
+        # Calculate the right side position (with some margin from the edge)
+        right_margin = 50
+        checkbox_x = self.width - right_margin - checkbox_width - 150  # 150 pixels for label text
+        
+        # Calculate total height needed for all checkboxes
+        total_checkboxes = len(self.checkboxes)
+        total_height = (total_checkboxes - 1) * checkbox_spacing + checkbox_height
+        
+        # Calculate starting Y position to center vertically
+        start_y = (self.height - total_height) // 2
+        
+        # Update each checkbox position
+        for i, (feature_name, checkbox) in enumerate(self.checkboxes.items()):
+            y_pos = start_y + i * checkbox_spacing
+            checkbox['rect'] = (checkbox_x, y_pos, checkbox_width, checkbox_height)
+
+    def _mouse_callback(self, event, x, y, flags, param):
+        """Handle mouse events for checkbox interaction."""
+        if event == cv2.EVENT_LBUTTONDOWN:
+            # Check if click is on QR code (bottom-left position)
+            fh, fw = self.height, self.width
+            qr_margin = 10
+            qr_max_width = fw // 6
+            
+            # Calculate QR code position and size
+            qr_oh, qr_ow = self.qr_code.shape[:2] if self.qr_code is not None else (100, 100)
+            if qr_ow > qr_max_width:
+                scale = qr_max_width / qr_ow
+                qr_ow = int(qr_ow * scale)
+                qr_oh = int(qr_oh * scale)
+            
+            qr_x, qr_y = qr_margin, fh - qr_oh - qr_margin
+            
+            # Check if click is within QR code bounds
+            if (qr_x <= x <= qr_x + qr_ow and qr_y <= y <= qr_y + qr_oh):
+                self.checkboxes_visible = not self.checkboxes_visible
+                print(f"Checkboxes: {'visible' if self.checkboxes_visible else 'hidden'}")
+                return
+            
+            # Only check checkbox clicks if checkboxes are visible
+            if self.checkboxes_visible:
+                for feature_name, checkbox in self.checkboxes.items():
+                    checkbox_x, checkbox_y, checkbox_w, checkbox_h = checkbox['rect']
+                    if (checkbox_x <= x <= checkbox_x + checkbox_w and 
+                        checkbox_y <= y <= checkbox_y + checkbox_h):
+                        checkbox['checked'] = not checkbox['checked']
+                        print(f"{checkbox['label']}: {'enabled' if checkbox['checked'] else 'disabled'}")
+
+    def _draw_checkboxes(self, frame):
+        """Draw all checkboxes on the frame."""
+        if not self.checkboxes_visible:
+            return
+            
+        for feature_name, checkbox in self.checkboxes.items():
+            x, y, w, h = checkbox['rect']
+            
+            # Draw checkbox border
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 255, 255), 2)
+            
+            # Draw checkmark if checked
+            if checkbox['checked']:
+                # Draw a simple checkmark
+                cv2.line(frame, (x + 3, y + h // 2), (x + w // 3, y + h - 3), (0, 255, 0), 2)
+                cv2.line(frame, (x + w // 3, y + h - 3), (x + w - 3, y + 3), (0, 255, 0), 2)
+            
+            # Draw label
+            cv2.putText(frame, checkbox['label'], (x + w + 10, y + h // 2 + 5), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
     def _load_assets(self):
         self.logo = self._load_image(self.config.logo_path)
@@ -321,7 +416,7 @@ class MultiModelTrackerApp:
         frame[y:y+oh, x:x+ow] = roi
 
     def _frame_to_ascii(self, frame):
-        """Convert a frame to an ASCII brightness-coded image."""
+        """Convert a frame to an ASCII brightness-coded image with hacker green colors."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         h, w = gray.shape
         cell_size = self.ascii_cell_size
@@ -336,8 +431,13 @@ class MultiModelTrackerApp:
                 avg = int(np.mean(cell))
                 char_idx = int((avg / 255) * (n_chars - 1))
                 char = chars[char_idx]
-                # Use grayscale for the text color
-                color = (int(avg), int(avg), int(avg))
+                
+                # Use hacker green color scheme based on brightness
+                # Darker areas = darker green, brighter areas = brighter green
+                green_intensity = int((avg / 255) * 255) + 100  # 0-255
+                # Create a green color with some variation for a more authentic look
+                color = (0, green_intensity, 0)  # BGR format: (Blue, Green, Red)
+                
                 cv2.putText(
                     out_img, char, (x, y + cell_size),
                     cv2.FONT_HERSHEY_SIMPLEX, self.ascii_font_scale, color, 1, cv2.LINE_AA
@@ -471,21 +571,12 @@ class MultiModelTrackerApp:
             high_five_detected = False
             # --- Green DrawingSpec for high five ---
             green_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4)
-            if last_hand_results and last_hand_results.multi_hand_landmarks:
+            if (self.checkboxes['hand_detection']['checked'] and 
+                last_hand_results and last_hand_results.multi_hand_landmarks):
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
                     if self._is_high_five(hand_landmarks):
-                        mp_drawing.draw_landmarks(
-                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                            green_spec, green_spec
-                        )
                         high_five_count += 1
                         high_five_detected = True
-                    else:
-                        mp_drawing.draw_landmarks(
-                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                            mp_drawing_styles.get_default_hand_landmarks_style(),
-                            mp_drawing_styles.get_default_hand_connections_style()
-                        )
 
             # --- High five duration logic ---
             now = time.time()
@@ -498,7 +589,9 @@ class MultiModelTrackerApp:
                 self.high_five_start_time = None
                 self.high_five_active = False
             # --- ASCII effect ---
-            if self.high_five_active and self.config.ascii_on_high_five:
+            if (self.high_five_active and 
+                self.config.ascii_on_high_five and 
+                self.checkboxes['ascii_effect']['checked']):
                 # Request ASCII conversion if not already requested
                 if not self.ascii_request_event.is_set():
                     self.ascii_request_event.set()
@@ -510,11 +603,8 @@ class MultiModelTrackerApp:
                 # Reset ASCII frame when not in ASCII mode
                 with self.ascii_lock:
                     self.latest_ascii_frame = None
-            # --- Blackout face on high five ---
-            if self.high_five_active and getattr(self.config, 'blackout_face_on_high_five', False):
-                display_frame = self._blackout_faces(display_frame, last_face_mesh_results)
 
-            if last_yolo_results:
+            if self.checkboxes['yolo_tracking']['checked'] and last_yolo_results:
                 boxes = last_yolo_results.boxes.xyxy.int().cpu().tolist()
                 track_ids = last_yolo_results.boxes.id.int().cpu().tolist()
                 for box, track_id in zip(boxes, track_ids):
@@ -526,6 +616,7 @@ class MultiModelTrackerApp:
             self._draw_info_text(display_frame)
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
             self._overlay_image(display_frame, self.qr_code, position="bottom-left")
+            self._draw_checkboxes(display_frame)  # Draw all checkboxes on the current frame
 
             # Average FPS Tally (end of playback)
             total_frame_count += 1
@@ -545,14 +636,26 @@ class MultiModelTrackerApp:
             cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
             cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
-            # Run FaceMesh overlay processing on the current frame if enabled
+            # --- Blackout face on high five (after ASCII effect) ---
+            if (self.high_five_active and 
+                getattr(self.config, 'blackout_face_on_high_five', False) and
+                self.checkboxes['face_blackout']['checked']):
+                display_frame = self._blackout_faces(display_frame, last_face_mesh_results)
+
+            # Run FaceMesh overlay processing on the original frame if enabled
             if self.high_five_active and getattr(self.config, 'face_mesh_on_high_five', False) and self.face_mesh_overlay is not None:
-                img_rgb_overlay = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
-                img_rgb_overlay.flags.writeable = False
-                last_face_mesh_overlay_results = self.face_mesh_overlay.process(img_rgb_overlay)
+                # Process on the original frame, not the ASCII frame
+                with self.frame_lock:
+                    if self.latest_frame is not None:
+                        original_frame = self.latest_frame.copy()
+                        img_rgb_overlay = cv2.cvtColor(original_frame, cv2.COLOR_BGR2RGB)
+                        img_rgb_overlay.flags.writeable = False
+                        last_face_mesh_overlay_results = self.face_mesh_overlay.process(img_rgb_overlay)
 
             # --- Face mesh overlay on high five ---
-            if self.high_five_active and getattr(self.config, 'face_mesh_on_high_five', False):
+            if (self.high_five_active and 
+                getattr(self.config, 'face_mesh_on_high_five', False) and
+                self.checkboxes['face_mesh']['checked']):
                 if (
                     mp_face_mesh is not None and
                     last_face_mesh_overlay_results and
@@ -590,7 +693,7 @@ class MultiModelTrackerApp:
                         )
 
             # --- Draw pose landmarks and connections ---
-            if last_pose_results and last_pose_results.pose_landmarks:
+            if self.checkboxes['pose_detection']['checked'] and last_pose_results and last_pose_results.pose_landmarks:
                 # Draw up to the wrists (shoulders, elbows, wrists, torso, legs), exclude hand/finger landmarks (17-22)
                 pose_indices = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
                 index_map = {orig_idx: i for i, orig_idx in enumerate(pose_indices)}
@@ -612,6 +715,22 @@ class MultiModelTrackerApp:
                     landmark_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2),
                     connection_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2)
                 )
+
+            # --- Draw hand landmarks (after all effects are applied) ---
+            if (self.checkboxes['hand_detection']['checked'] and 
+                last_hand_results and last_hand_results.multi_hand_landmarks):
+                for hand_landmarks in last_hand_results.multi_hand_landmarks:
+                    if self._is_high_five(hand_landmarks):
+                        mp_drawing.draw_landmarks(
+                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            green_spec, green_spec
+                        )
+                    else:
+                        mp_drawing.draw_landmarks(
+                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            mp_drawing_styles.get_default_hand_landmarks_style(),
+                            mp_drawing_styles.get_default_hand_connections_style()
+                        )
 
             cv2.imshow(self.config.window_name, display_frame)
 
