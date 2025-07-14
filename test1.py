@@ -33,7 +33,7 @@ class Config:
     webcam_id = 0
     video_path = "vid/hongdae.mp4" # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
 
-    use_small_window = False
+    fullscreen = False
     window_name = "Multi-Tracking Demo"
     info_text = "No data is retained, stored or shared. Hold up hand for additional effects."
 
@@ -53,8 +53,6 @@ class Config:
         with open(config_path) as config_file:
             config_toml = pytomlpp.load(config_file)
         
-        print(config_toml)
-
         if not isinstance(config_toml, dict):
             return
 
@@ -183,18 +181,22 @@ class MultiModelTrackerApp:
         )
 
     def _setup_screen(self):
-        if self.config.use_small_window:
+        if self.config.fullscreen:
             try:
                 screen = screeninfo.get_monitors()[0]
                 self.width, self.height = screen.width, screen.height
+                cv2.namedWindow(self.config.window_name, cv2.WINDOW_NORMAL)
+                cv2.setWindowProperty(self.config.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
             except screeninfo.common.ScreenInfoError:
                 print("Could not get screen info. Using 1280x720.")
                 self.width, self.height = 1280, 720
-
+                cv2.namedWindow(self.config.window_name, cv2.WINDOW_AUTOSIZE)
+                cv2.resizeWindow(self.config.window_name, self.width, self.height)
         else:
             self.width, self.height = 1280, 720
+            cv2.namedWindow(self.config.window_name, cv2.WINDOW_AUTOSIZE)
+            cv2.resizeWindow(self.config.window_name, self.width, self.height)
 
-        cv2.namedWindow(self.config.window_name, cv2.WINDOW_AUTOSIZE)
         # Set mouse callback for checkbox interaction
         cv2.setMouseCallback(self.config.window_name, self._mouse_callback)
         
