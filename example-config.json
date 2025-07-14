@@ -8,7 +8,7 @@
     "info_text": "No data is retained, stored or shared. Hold up hand for additional effects.",
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
-    "face_overlay_path": "img/generic-face.png",
+    "face_overlay_path": "img/dwayne.png",
     "model_path": "models/yolo11n",
     "yolo_conf_threshold": 0.3
 }
