@@ -1,14 +1,13 @@
 {
+    "stream_source": "rtsp",
     "rtsp_url": "rtsp://192.168.1.109:554/0/0/0",
-    "use_webcam": false,
     "webcam_id": 0,
-    "use_video_file": false,
     "video_path": "vid/hongdae.mp4",
     "window_name": "Multi-Tracking Demo",
     "use_small_window": false,
     "info_text": "No data is retained, stored or shared. Hold up hand for additional effects.",
     "logo_path": "img/odplogo.png",
     "qr_code_path": "img/qr-code.png",
-    "model_path": "models/yolo11n.pt",
+    "model_path": "models/yolo11n",
     "yolo_conf_threshold": 0.3
 }
