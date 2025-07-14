@@ -12,7 +12,7 @@ from mediapipe.python.solutions import drawing_utils as mp_drawing
 from mediapipe.python.solutions import drawing_styles as mp_drawing_styles
 from mediapipe.python.solutions import pose as mp_pose
 import torch
-import json
+import pytomlpp
 import os
 from mediapipe.framework.formats import landmark_pb2
 
@@ -46,17 +46,19 @@ class Config:
 
     yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
 
-    def __init__(self, config_path = "config.json"):
+    def __init__(self, config_path = "config.toml"):
         if not os.path.exists(config_path):
-            config_path = "example-config.json"
+            config_path = "example-config.toml"
 
-        with open(config_path, "r") as config_file:
-            config_json = json.load(config_file)
+        with open(config_path) as config_file:
+            config_toml = pytomlpp.load(config_file)
+        
+        print(config_toml)
 
-        if not isinstance(config_json, dict):
+        if not isinstance(config_toml, dict):
             return
 
-        for k, v in config_json.items():
+        for k, v in config_toml.items():
             setattr(self, k, v)
 
 # --- MediaPipe Initialization ---
@@ -117,7 +119,7 @@ class MultiModelTrackerApp:
             self.yolo_model = YOLO(pt_path).to('cuda')
         elif os.path.exists(onnx_path):
             print(f"CUDA not available. Using ONNX model: {onnx_path}")
-            self.yolo_model = YOLO(onnx_path)
+            self.yolo_model = YOLO(onnx_path, task="detect")
         else:
             print(f"CUDA not available and ONNX model not found. Using PyTorch model on CPU: {pt_path}")
             self.yolo_model = YOLO(pt_path).to('cpu')

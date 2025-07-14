@@ -1,0 +1,16 @@
+stream_source = "rtsp" # Possible values: rtsp, webcam, video
+
+rtsp_url = "rtsp://192.168.1.109:554/0/0/0"
+webcam_id = 0
+video_path = "vid/hongdae.mp4" # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
+
+window_name = "Multi-Tracking Demo"
+use_small_window = false
+
+info_text = "No data is retained, stored or shared. Hold up hand for additional effects."
+logo_path = "img/odplogo.png"
+qr_code_path = "img/qr-code.png"
+face_overlay_path = "img/dwayne.png"
+
+model_path = "models/yolo11n" # Shouldn't include extension, automatically determined
+yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections

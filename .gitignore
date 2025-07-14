@@ -3,4 +3,4 @@ models/*
 .vscode
 vid/*
 .venv
-config.json
+config.toml
