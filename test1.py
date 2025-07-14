@@ -30,17 +30,18 @@ class Config:
     """Possible values: rtsp, webcam, video"""
 
     rtsp_url = "rtsp://192.168.1.109:554/0/0/0" # default opencv stream
-    webcam_id = 0,
-    video_path = "vid/hongdae.mp4", # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
+    webcam_id = 0
+    video_path = "vid/hongdae.mp4" # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
 
-    use_small_window = False,
-    window_name = "Multi-Tracking Demo",
-    info_text = "No data is retained, stored or shared. Hold up hand for additional effects.",
+    use_small_window = False
+    window_name = "Multi-Tracking Demo"
+    info_text = "No data is retained, stored or shared. Hold up hand for additional effects."
 
-    logo_path = "img/odplogo.png",
-    qr_code_path = "img/qr-code.png",
+    logo_path = "img/odplogo.png"
+    qr_code_path = "img/qr-code.png"
+    face_overlay_path = "img/generic-face.png"  # Path to generic face image for overlay
 
-    model_path = "models/yolo11n",
+    model_path = "models/yolo11n"
     """Model path shouldn't include extension, it will be automatically determined"""
 
     yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
@@ -98,7 +99,7 @@ class MultiModelTrackerApp:
             'pose_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
             'ascii_effect': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
             'face_mesh': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
-            'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'}
+            'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Overlay'}
         }
         
         # Checkbox visibility state
@@ -275,6 +276,7 @@ class MultiModelTrackerApp:
     def _load_assets(self):
         self.logo = self._load_image(self.config.logo_path)
         self.qr_code = self._load_image(self.config.qr_code_path)
+        self.face_overlay = self._load_image(self.config.face_overlay_path)
 
     def _load_image(self, path):
         img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
@@ -536,10 +538,14 @@ class MultiModelTrackerApp:
                 self.face_results_queue.put(results)
             time.sleep(0.02)
 
-    def _blackout_faces(self, frame, face_mesh_results):
-        """Black out faces in the frame using the convex hull of FaceMesh landmarks."""
+    def _overlay_faces(self, frame, face_mesh_results):
+        """Overlay a generic face image on detected faces using the convex hull of FaceMesh landmarks."""
         if face_mesh_results is None or not face_mesh_results.multi_face_landmarks:
             return frame
+        
+        if self.face_overlay is None:
+            return frame
+            
         for face_landmarks in face_mesh_results.multi_face_landmarks:
             points = []
             h, w, _ = frame.shape
@@ -549,7 +555,50 @@ class MultiModelTrackerApp:
             points = np.array(points, dtype=np.int32)
             if points.shape[0] > 0:
                 hull = cv2.convexHull(points)
-                cv2.fillConvexPoly(frame, hull, (0, 0, 0))
+                
+                # Get the bounding rectangle of the face
+                x, y, w_face, h_face = cv2.boundingRect(hull)
+                
+                # Resize the face overlay to match the detected face size, scaled up 2x
+                face_overlay_resized = cv2.resize(self.face_overlay, (w_face * 2, h_face * 2))
+                
+                # Create a mask for the face region
+                mask = np.zeros((h, w), dtype=np.uint8)
+                cv2.fillConvexPoly(mask, hull, 255)
+                
+                # Extract the region of interest (accounting for 2x scaled overlay)
+                # Center the larger overlay over the detected face
+                x_offset = w_face // 2
+                y_offset = h_face // 2
+                roi_x = max(0, x - x_offset)
+                roi_y = max(0, y - y_offset)
+                roi_w = min(w_face * 2, frame.shape[1] - roi_x)
+                roi_h = min(h_face * 2, frame.shape[0] - roi_y)
+                
+                roi = frame[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
+                mask_roi = mask[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
+                
+                if roi.shape[0] > 0 and roi.shape[1] > 0 and face_overlay_resized.shape[0] > 0 and face_overlay_resized.shape[1] > 0:
+                    # Handle alpha channel if present
+                    if face_overlay_resized.shape[2] == 4:
+                        # Extract alpha channel and normalize
+                        alpha = face_overlay_resized[:, :, 3] / 255.0
+                        alpha = np.clip(alpha, 0, 1)
+                        
+                        # Blend the face overlay with the original frame
+                        for c in range(3):
+                            roi[:, :, c] = (face_overlay_resized[:, :, c] * alpha + 
+                                           roi[:, :, c] * (1 - alpha)).astype(np.uint8)
+                    else:
+                        # No alpha channel, use the mask
+                        mask_alpha = mask_roi / 255.0
+                        for c in range(3):
+                            roi[:, :, c] = (face_overlay_resized[:, :, c] * mask_alpha + 
+                                           roi[:, :, c] * (1 - mask_alpha)).astype(np.uint8)
+                    
+                    # Put the blended region back
+                    frame[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w] = roi
+                    
         return frame
 
     def _pose_processor_thread(self):
@@ -689,7 +738,7 @@ class MultiModelTrackerApp:
                 for box, track_id in zip(boxes, track_ids):
                     x1, y1, x2, y2 = box
                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 255, 255), 1)
-                    cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
+                    cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=1, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
 
             # TODO: Re-enable this when we want to show the logo and QR code
             self._draw_info_text(display_frame)
@@ -715,10 +764,10 @@ class MultiModelTrackerApp:
             cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
             cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
-            # --- Blackout face on high five (after ASCII effect) ---
+            # --- Overlay face on high five (after ASCII effect) ---
             if (self.high_five_active and 
-                self.checkboxes['face_blackout']['checked']):
-                display_frame = self._blackout_faces(display_frame, last_face_mesh_results)
+                self.checkboxes['face_overlay']['checked']):
+                display_frame = self._overlay_faces(display_frame, last_face_mesh_results)
 
             # Run FaceMesh overlay processing on the original frame if enabled
             if self.high_five_active and self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
