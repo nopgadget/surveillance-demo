@@ -643,7 +643,6 @@ class MultiModelTrackerApp:
             high_five_count = 0
             high_five_detected = False
             # --- Green DrawingSpec for high five ---
-            green_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4)
             if (self.checkboxes['hand_detection']['checked'] and 
                 last_hand_results and last_hand_results.multi_hand_landmarks):
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
@@ -795,6 +794,8 @@ class MultiModelTrackerApp:
                 )
 
             # --- Draw hand landmarks (after all effects are applied) ---
+            green_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4)
+            white_spec = mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=2, circle_radius=4)
             if (self.checkboxes['hand_detection']['checked'] and 
                 last_hand_results and last_hand_results.multi_hand_landmarks):
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
@@ -806,8 +807,7 @@ class MultiModelTrackerApp:
                     else:
                         mp_drawing.draw_landmarks(
                             display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                            mp_drawing_styles.get_default_hand_landmarks_style(),
-                            mp_drawing_styles.get_default_hand_connections_style()
+                            white_spec, white_spec
                         )
 
             # --- Draw haptic text (on top of everything) ---
