@@ -34,7 +34,8 @@ class Config:
     video_path = "vid/hongdae.mp4" # Example video at https://www.youtube.com/watch?v=0qEczHL_Wlo
 
     fullscreen = False
-    window_name = "Multi-Tracking Demo"
+    window_name_crowd = "People Counter"
+    window_name_interactive = "Interactive"
     info_text = "No data is retained, stored or shared. Hold up hand for additional effects."
 
     logo_path = "img/odplogo.png"
@@ -94,7 +95,7 @@ class MultiModelTrackerApp:
         # --- Checkbox states for different features ---
         # Initialize with placeholder positions, will be updated after screen setup
         self.checkboxes = {
-            'yolo_tracking': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'YOLO Tracking'},
+            # 'yolo_tracking': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'YOLO Tracking'},
             'hand_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Hand Detection'},
             'pose_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
             'ascii_effect': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
@@ -185,20 +186,26 @@ class MultiModelTrackerApp:
             try:
                 screen = screeninfo.get_monitors()[0]
                 self.width, self.height = screen.width, screen.height
-                cv2.namedWindow(self.config.window_name, cv2.WINDOW_NORMAL)
-                cv2.setWindowProperty(self.config.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_NORMAL)
+                cv2.setWindowProperty(self.config.window_name_crowd, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                cv2.namedWindow(self.config.window_name_interactive, cv2.WINDOW_NORMAL)
+                cv2.setWindowProperty(self.config.window_name_interactive, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
             except screeninfo.common.ScreenInfoError:
                 print("Could not get screen info. Using 1280x720.")
                 self.width, self.height = 1280, 720
-                cv2.namedWindow(self.config.window_name, cv2.WINDOW_AUTOSIZE)
-                cv2.resizeWindow(self.config.window_name, self.width, self.height)
+                cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_AUTOSIZE)
+                cv2.resizeWindow(self.config.window_name_crowd, self.width, self.height)
+                cv2.namedWindow(self.config.window_name_interactive, cv2.WINDOW_AUTOSIZE)
+                cv2.resizeWindow(self.config.window_name_interactive, self.width, self.height)
         else:
             self.width, self.height = 1280, 720
-            cv2.namedWindow(self.config.window_name, cv2.WINDOW_AUTOSIZE)
-            cv2.resizeWindow(self.config.window_name, self.width, self.height)
+            cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_AUTOSIZE)
+            cv2.resizeWindow(self.config.window_name_crowd, self.width, self.height)
+            cv2.namedWindow(self.config.window_name_interactive, cv2.WINDOW_AUTOSIZE)
+            cv2.resizeWindow(self.config.window_name_interactive, self.width, self.height)
 
         # Set mouse callback for checkbox interaction
-        cv2.setMouseCallback(self.config.window_name, self._mouse_callback)
+        cv2.setMouseCallback(self.config.window_name_interactive, self._mouse_callback)
         
         # Update checkbox positions after screen dimensions are known
         self._update_checkbox_positions()
@@ -686,14 +693,16 @@ class MultiModelTrackerApp:
         start_frame_time = prev_frame_time
 
         while not self.stop_event.is_set():
-            display_frame = None
+            display_frame_interactive = None
             with self.frame_lock:
                 if self.latest_frame is not None:
-                    display_frame = self.latest_frame.copy()
+                    display_frame_interactive = self.latest_frame.copy()
             
-            if display_frame is None:
+            if display_frame_interactive is None:
                 time.sleep(0.01)
                 continue
+
+            display_frame_crowd = display_frame_interactive.copy()
 
             try:
                 last_yolo_results = self.yolo_results_queue.get_nowait()
@@ -756,25 +765,29 @@ class MultiModelTrackerApp:
                 # Use the latest ASCII frame if available
                 with self.ascii_lock:
                     if self.latest_ascii_frame is not None:
-                        display_frame = self.latest_ascii_frame.copy()
+                        display_frame_interactive = self.latest_ascii_frame.copy()
             else:
                 # Reset ASCII frame when not in ASCII mode
                 with self.ascii_lock:
                     self.latest_ascii_frame = None
 
-            if self.checkboxes['yolo_tracking']['checked'] and last_yolo_results:
+            if last_yolo_results:
                 boxes = last_yolo_results.boxes.xyxy.int().cpu().tolist()
                 track_ids = last_yolo_results.boxes.id.int().cpu().tolist()
                 for box, track_id in zip(boxes, track_ids):
                     x1, y1, x2, y2 = box
-                    cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 255, 255), 1)
-                    cvzone.putTextRect(display_frame, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
+                    cv2.rectangle(display_frame_crowd, (x1, y1), (x2, y2), (255, 255, 255), 1)
+                    cvzone.putTextRect(display_frame_crowd, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
 
             # TODO: Re-enable this when we want to show the logo and QR code
-            self._draw_info_text(display_frame)
+            self._draw_info_text(display_frame_interactive)
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
-            self._overlay_image(display_frame, self.qr_code, position="bottom-left")
-            self._draw_checkboxes(display_frame)  # Draw all checkboxes on the current frame
+            self._overlay_image(display_frame_interactive, self.qr_code, position="bottom-left")
+            self._draw_checkboxes(display_frame_interactive)  # Draw all checkboxes on the current frame
+
+            self._draw_info_text(display_frame_crowd)
+            #self._overlay_image(display_frame, self.logo, position="bottom-right")
+            self._overlay_image(display_frame_crowd, self.qr_code, position="bottom-left")
 
             # Average FPS Tally (end of playback)
             total_frame_count += 1
@@ -792,18 +805,18 @@ class MultiModelTrackerApp:
 
             # FPS Counter Display
             if self.checkboxes['fps_counter']['checked']:
-                cv2.rectangle(display_frame, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
-                cv2.putText(display_frame, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+                cv2.rectangle(display_frame_interactive, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
+                cv2.putText(display_frame_interactive, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
             # --- Overlay face on high five (after ASCII effect) ---
             if (self.high_five_active and 
                 self.checkboxes['face_overlay']['checked']):
-                display_frame = self._overlay_faces(display_frame, last_face_mesh_results)
+                display_frame_interactive = self._overlay_faces(display_frame_interactive, last_face_mesh_results)
 
             # --- Face blackout on high five (before face mesh) ---
             if (self.high_five_active and 
                 self.checkboxes['face_blackout']['checked']):
-                display_frame = self._blackout_faces(display_frame, last_face_mesh_results)
+                display_frame_interactive = self._blackout_faces(display_frame_interactive, last_face_mesh_results)
 
             # Run FaceMesh overlay processing on the original frame if enabled
             if self.high_five_active and self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
@@ -833,21 +846,21 @@ class MultiModelTrackerApp:
                         contours = filter_connections(mp_face_mesh.FACEMESH_CONTOURS, num_landmarks)
                         irises = filter_connections(mp_face_mesh.FACEMESH_IRISES, num_landmarks)
                         mp_drawing.draw_landmarks(
-                            image=display_frame,
+                            image=display_frame_interactive,
                             landmark_list=face_landmarks,
                             connections=tess,
                             landmark_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=1, circle_radius=0),
                             connection_drawing_spec=mp_drawing.DrawingSpec(color=(150,150,150), thickness=1, circle_radius=1)
                         )
                         mp_drawing.draw_landmarks(
-                            image=display_frame,
+                            image=display_frame_interactive,
                             landmark_list=face_landmarks,
                             connections=contours,
                             landmark_drawing_spec=None,
                             connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,0,0), thickness=1, circle_radius=1)
                         )
                         mp_drawing.draw_landmarks(
-                            image=display_frame,
+                            image=display_frame_interactive,
                             landmark_list=face_landmarks,
                             connections=irises,
                             landmark_drawing_spec=None,
@@ -871,7 +884,7 @@ class MultiModelTrackerApp:
                     landmark=[all_landmarks[i] for i in pose_indices]
                 )
                 mp_drawing.draw_landmarks(
-                    image=display_frame,
+                    image=display_frame_interactive,
                     landmark_list=pose_landmarks,
                     connections=pose_connections,
                     landmark_drawing_spec=mp_drawing.DrawingSpec(color=(255,255,255), thickness=2, circle_radius=2),
@@ -886,19 +899,20 @@ class MultiModelTrackerApp:
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
                     if self._is_high_five(hand_landmarks):
                         mp_drawing.draw_landmarks(
-                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
                             green_spec, green_spec
                         )
                     else:
                         mp_drawing.draw_landmarks(
-                            display_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
                             white_spec, white_spec
                         )
 
             # --- Draw haptic text (on top of everything) ---
-            self._draw_haptic_text(display_frame)
+            self._draw_haptic_text(display_frame_interactive)
 
-            cv2.imshow(self.config.window_name, display_frame)
+            cv2.imshow(self.config.window_name_interactive, display_frame_interactive)
+            cv2.imshow(self.config.window_name_crowd, display_frame_crowd)
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == 27: # q or escape key
