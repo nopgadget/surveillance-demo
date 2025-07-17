@@ -102,11 +102,16 @@ class MultiModelTrackerApp:
             'face_mesh': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
             'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
             'face_blackout': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
-            'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'}
+            'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'},
+            'info_display': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Info & QR Code'},
+            'second_window': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Second Window'}
         }
         
         # Checkbox visibility state
         self.checkboxes_visible = True
+        
+        # Track previous second window state to handle hiding
+        self.previous_second_window_state = True
 
         # --- Load Assets & Models ---
         self._setup_screen()
@@ -780,11 +785,13 @@ class MultiModelTrackerApp:
                     cvzone.putTextRect(display_frame_crowd, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
 
             # TODO: Re-enable this when we want to show the logo and QR code
-            self._draw_info_text(display_frame_interactive)
-            #self._overlay_image(display_frame, self.logo, position="bottom-right")
-            self._overlay_image(display_frame_interactive, self.qr_code, position="bottom-left")
+            if self.checkboxes['info_display']['checked']:
+                self._draw_info_text(display_frame_interactive)
+                #self._overlay_image(display_frame, self.logo, position="bottom-right")
+                self._overlay_image(display_frame_interactive, self.qr_code, position="bottom-left")
             self._draw_checkboxes(display_frame_interactive)  # Draw all checkboxes on the current frame
 
+            # Info text and QR code always shown on crowd window
             self._draw_info_text(display_frame_crowd)
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
             self._overlay_image(display_frame_crowd, self.qr_code, position="bottom-left")
@@ -912,7 +919,16 @@ class MultiModelTrackerApp:
             self._draw_haptic_text(display_frame_interactive)
 
             cv2.imshow(self.config.window_name_interactive, display_frame_interactive)
-            cv2.imshow(self.config.window_name_crowd, display_frame_crowd)
+            
+            # Handle second window visibility
+            current_second_window_state = self.checkboxes['second_window']['checked']
+            if current_second_window_state:
+                cv2.imshow(self.config.window_name_crowd, display_frame_crowd)
+            elif self.previous_second_window_state and not current_second_window_state:
+                # Hide the window when it was previously shown but now disabled
+                cv2.destroyWindow(self.config.window_name_crowd)
+            
+            self.previous_second_window_state = current_second_window_state
 
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q') or key == 27: # q or escape key
