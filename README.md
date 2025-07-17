@@ -1,4 +1,4 @@
-# Real-time People Tracker Conference 'Surveillance' Demo
+# Real-time People Tracker 'Surveillance' Demo
 
 This project is a real-time person tracking demonstration built for conference and educational settings. It uses a YOLO (You Only Look Once) model to identify and track individuals in a live video stream, showcasing the capabilities of modern computer vision in a transparent and responsible manner.
 
