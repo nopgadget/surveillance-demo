@@ -36,7 +36,8 @@ class Config:
     fullscreen = False
     window_name_crowd = "People Counter"
     window_name_interactive = "Interactive"
-    info_text = "No data is retained, stored or shared. Hold up hand for additional effects."
+    info_text = "No data is retained, stored or shared."
+    info_text_interactive = "No data is retained, stored or shared. Hold up hand for additional effects."
 
     logo_path = "img/odplogo.png"
     qr_code_path = "img/qr-code.png"
@@ -397,9 +398,9 @@ class MultiModelTrackerApp:
                 return False
         return True
 
-    def _draw_info_text(self, frame):
+    def _draw_info_text(self, frame, custom_text=None):
         """Draws the informational text at the top of the screen."""
-        text = self.config.info_text
+        text = custom_text if custom_text is not None else self.config.info_text
         font = cv2.FONT_HERSHEY_SIMPLEX
         text_scale, font_thickness = 1, 2
         text_size, _ = cv2.getTextSize(text, font, text_scale, font_thickness)
@@ -786,13 +787,13 @@ class MultiModelTrackerApp:
 
             # TODO: Re-enable this when we want to show the logo and QR code
             if self.checkboxes['info_display']['checked']:
-                self._draw_info_text(display_frame_interactive)
+                self._draw_info_text(display_frame_interactive, self.config.info_text_interactive)
                 #self._overlay_image(display_frame, self.logo, position="bottom-right")
                 self._overlay_image(display_frame_interactive, self.qr_code, position="bottom-left")
             self._draw_checkboxes(display_frame_interactive)  # Draw all checkboxes on the current frame
 
             # Info text and QR code always shown on crowd window
-            self._draw_info_text(display_frame_crowd)
+            self._draw_info_text(display_frame_crowd, self.config.info_text)
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
             self._overlay_image(display_frame_crowd, self.qr_code, position="bottom-left")
 

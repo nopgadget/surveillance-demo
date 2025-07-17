@@ -7,7 +7,9 @@ video_path = "vid/hongdae.mp4" # Example video at https://www.youtube.com/watch?
 window_name = "Multi-Tracking Demo"
 fullscreen = false
 
-info_text = "No data is retained, stored or shared. Hold up hand for additional effects."
+info_text = "No data is retained, stored or shared."
+info_text_interactive = "No data is retained, stored or shared. Hold up hand for additional effects."
+
 logo_path = "img/odplogo.png"
 qr_code_path = "img/qr-code.png"
 face_overlay_path = "img/dwayne.png"
