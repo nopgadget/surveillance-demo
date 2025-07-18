@@ -1,5 +1,23 @@
 # Real-time People Tracker 'Surveillance' Demo
 
+## 🚀 Quick Start
+
+**To use your webcam for this demo:**
+
+1. Copy the example configuration file:
+   ```bash
+   cp example-config.toml config.toml
+   ```
+
+2. Edit `config.toml` and change the stream source from "rtsp" to "webcam":
+   ```toml
+   stream_source = "webcam"  # Change from "rtsp" to "webcam"
+   ```
+
+3. Install dependencies and run the demo (see [Installation](#installation) below)
+
+---
+
 This project is a real-time person tracking demonstration built for conference and educational settings. It uses a YOLO (You Only Look Once) model to identify and track individuals in a live video stream, showcasing the capabilities of modern computer vision in a transparent and responsible manner.
 
 The primary goal of this interactive demo is to engage attendees and raise awareness about data privacy in an era of increasingly powerful surveillance technologies.
@@ -8,7 +26,7 @@ The primary goal of this interactive demo is to engage attendees and raise aware
 
 ## How It Works
 
-The application captures a live RTSP video stream and processes it frame by frame to:
+The application captures a live video stream (RTSP, webcam, or video file) and processes it frame by frame to:
 
 1.  **Detect and Track Individuals**: It runs a YOLO object detection model to identify people in the video feed.
 2.  **Assign Anonymous IDs**: Each detected person is assigned a temporary, anonymous tracking ID that persists as long as they are in the frame.
@@ -44,7 +62,7 @@ The application can be controlled using the following keyboard commands while th
 
 ---
 
-## Getting Started
+## Installation
 
 ### Dependencies
 
@@ -73,12 +91,21 @@ pip install -r ./requirements.txt
 
 ### Configuration
 
-There is an example config in `example-config.json`.
-This file should be copied to `config.json`,
-and changes to your individual config should be made there.
+The application uses a TOML configuration file. You must copy the example configuration and modify it for your setup:
 
-```
+```bash
 cp example-config.toml config.toml
-# edit config.json
+```
+
+Then edit `config.toml` to configure your video source:
+
+- **For webcam**: Set `stream_source = "webcam"`
+- **For RTSP stream**: Set `stream_source = "rtsp"` and configure `rtsp_url`
+- **For video file**: Set `stream_source = "video"` and configure `video_path`
+
+```toml
+# Example configuration for webcam usage
+stream_source = "webcam"  # Options: "webcam", "rtsp", "video"
+webcam_id = 0             # Camera device ID (usually 0 for built-in webcam)
 ```
 
