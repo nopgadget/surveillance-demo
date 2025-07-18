@@ -105,7 +105,7 @@ class MultiModelTrackerApp:
             'face_blackout': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
             'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'},
             'info_display': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Info & QR Code'},
-            'second_window': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Second Window'}
+            'second_window': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Second Window'}
         }
         
         # Checkbox visibility state
