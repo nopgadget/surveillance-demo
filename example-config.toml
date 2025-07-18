@@ -13,6 +13,7 @@ info_text_interactive = "No data is retained, stored or shared. Hold up hand for
 logo_path = "img/odplogo.png"
 qr_code_path = "img/qr-code.png"
 face_overlay_path = "img/dwayne.png"
+face_swap_source_path = "img/musk.jpg"
 
 model_path = "models/yolo11n" # Shouldn't include extension, automatically determined
 yolo_conf_threshold = 0.3 # Confidence threshold for YOLO detections
