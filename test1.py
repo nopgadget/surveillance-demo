@@ -26,7 +26,7 @@ class Config:
     # these are the default values found in example-config.json
     # to modify these values, copy example-config.json to config.json and modify them there
 
-    stream_source = SOURCE_RTSP
+    stream_source = SOURCE_RTSP # Change in your own config.toml
     """Possible values: rtsp, webcam, video"""
 
     rtsp_url = "rtsp://192.168.1.109:554/0/0/0" # default opencv stream
