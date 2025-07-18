@@ -78,7 +78,7 @@ This file should be copied to `config.json`,
 and changes to your individual config should be made there.
 
 ```
-cp example-config.json config.json
+cp example-config.toml config.toml
 # edit config.json
 ```
 
