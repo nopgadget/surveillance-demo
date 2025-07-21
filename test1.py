@@ -164,6 +164,14 @@ class MultiModelTrackerApp:
         self.haptic_text_start_time = None
         self.haptic_text_duration = 3.0  # Duration in seconds
         self.haptic_text_alpha = 0.0     # For fade effect
+        
+        # Gesture tracking variables
+        self.gesture_start_time = None
+        self.current_gesture = None
+        self.gesture_duration = 2.0  # Duration to hold gesture
+        self.gesture_cooldown = 3.0  # Cooldown after gesture activation (increased from 1.0)
+        self.last_gesture_time = 0
+        
         # Add FaceMesh instance for blackout
         self.face_mesh = None
         if mp_face_mesh is not None:
@@ -472,8 +480,141 @@ class MultiModelTrackerApp:
                     self.latest_ascii_frame = ascii_frame
             self.ascii_request_event.clear()
 
+    def _count_fingers(self, hand_landmarks):
+        """Count the number of extended fingers in a hand (excluding thumb)."""
+        # Finger tip landmarks (excluding thumb)
+        finger_tips = [
+            mp_hands.HandLandmark.INDEX_FINGER_TIP,
+            mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
+            mp_hands.HandLandmark.RING_FINGER_TIP,
+            mp_hands.HandLandmark.PINKY_TIP
+        ]
+        
+        # Corresponding PIP (second joint) landmarks
+        finger_pips = [
+            mp_hands.HandLandmark.INDEX_FINGER_PIP,
+            mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
+            mp_hands.HandLandmark.RING_FINGER_PIP,
+            mp_hands.HandLandmark.PINKY_PIP
+        ]
+        
+        extended_fingers = 0
+        
+        for i in range(len(finger_tips)):
+            tip_y = hand_landmarks.landmark[finger_tips[i]].y
+            pip_y = hand_landmarks.landmark[finger_pips[i]].y
+            # Finger is extended if tip is above PIP joint
+            if tip_y < pip_y - 0.01:  # Small threshold for stability
+                extended_fingers += 1
+        
+        return extended_fingers
+
+    def _handle_gesture_activation(self, finger_count):
+        """Handle gesture-based feature activation (only enables features)."""
+        current_time = time.time()
+        
+        # Check if we're in cooldown period
+        if current_time - self.last_gesture_time < self.gesture_cooldown:
+            return
+        
+        # Map finger count to features
+        gesture_features = {
+            1: 'pose_detection',
+            2: 'ascii_effect', 
+            3: 'face_mesh',
+            4: 'face_blackout'
+        }
+        
+        if finger_count in gesture_features:
+            feature_name = gesture_features[finger_count]
+            
+            # Only enable the feature (don't disable)
+            if feature_name in self.checkboxes and not self.checkboxes[feature_name]['checked']:
+                self.checkboxes[feature_name]['checked'] = True
+                self._show_haptic_text(f"{self.checkboxes[feature_name]['label']} enabled!")
+                self.last_gesture_time = current_time
+                print(f"Gesture {finger_count} fingers: {self.checkboxes[feature_name]['label']} enabled")
+
+    def _handle_gesture_deactivation(self):
+        """Handle thumbs-down gesture to deactivate finger-controllable features."""
+        current_time = time.time()
+        
+        # Check if we're in cooldown period
+        if current_time - self.last_gesture_time < self.gesture_cooldown:
+            return
+        
+        # Features that can be deactivated by thumbs down
+        deactivatable_features = ['pose_detection', 'ascii_effect', 'face_mesh', 'face_blackout']
+        
+        deactivated_count = 0
+        for feature_name in deactivatable_features:
+            if feature_name in self.checkboxes and self.checkboxes[feature_name]['checked']:
+                self.checkboxes[feature_name]['checked'] = False
+                deactivated_count += 1
+        
+        if deactivated_count > 0:
+            self._show_haptic_text(f"Deactivated {deactivated_count} features!")
+            self.last_gesture_time = current_time
+            print(f"Thumbs down: Deactivated {deactivated_count} features")
+
+    def _draw_gesture_progress(self, frame, gesture, progress):
+        """Draw gesture progress indicator."""
+        if gesture is None or progress <= 0:
+            return
+            
+        # Draw progress bar in top-left corner
+        bar_width = 200
+        bar_height = 20
+        margin = 20
+        
+        # Background rectangle
+        cv2.rectangle(frame, (margin, margin), (margin + bar_width, margin + bar_height), (50, 50, 50), -1)
+        
+        # Progress rectangle
+        progress_width = int(bar_width * progress)
+        if progress_width > 0:
+            cv2.rectangle(frame, (margin, margin), (margin + progress_width, margin + bar_height), (0, 255, 0), -1)
+        
+        # Border
+        cv2.rectangle(frame, (margin, margin), (margin + bar_width, margin + bar_height), (255, 255, 255), 2)
+        
+        # Text
+        gesture_names = {1: "Pose", 2: "ASCII", 3: "Face Mesh", 4: "Face Blackout"}
+        text = f"{gesture_names.get(gesture, f'{gesture} Fingers')}: {int(progress * 100)}%"
+        cv2.putText(frame, text, (margin + 5, margin + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+    def _draw_finger_count_debug(self, frame, finger_count):
+        """Draw finger count for debugging."""
+        if finger_count is None:
+            return
+            
+        # Draw in top-right corner
+        text = f"Fingers: {finger_count}"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_scale = 0.7
+        font_thickness = 2
+        
+        # Get text size
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, text_scale, font_thickness)
+        
+        # Position in top-right
+        margin = 20
+        text_x = frame.shape[1] - text_width - margin
+        text_y = text_height + margin
+        
+        # Background rectangle
+        bg_padding = 10
+        cv2.rectangle(frame, 
+                     (text_x - bg_padding, text_y - text_height - bg_padding),
+                     (text_x + text_width + bg_padding, text_y + bg_padding),
+                     (0, 0, 0), -1)
+        
+        # Draw text
+        cv2.putText(frame, text, (text_x, text_y), font, text_scale, (255, 255, 255), font_thickness)
+
     def _is_high_five(self, hand_landmarks):
         """Checks for a high-five gesture."""
+        # For high-five, all fingers should be extended
         finger_tips_ids = [
             mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
             mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.PINKY_TIP
@@ -483,9 +624,135 @@ class MultiModelTrackerApp:
             mp_hands.HandLandmark.RING_FINGER_PIP, mp_hands.HandLandmark.PINKY_PIP
         ]
         
+        # Check that all fingers are extended
         for i in range(len(finger_tips_ids)):
             if hand_landmarks.landmark[finger_tips_ids[i]].y > hand_landmarks.landmark[pip_joints_ids[i]].y:
                 return False
+        
+        # Additional check: for high-five, the hand should be more horizontal than vertical
+        # This differentiates from 4 fingers pointing up
+        wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
+        index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+        pinky_tip = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP]
+        
+        # Calculate hand orientation
+        hand_width = abs(index_tip.x - pinky_tip.x)
+        hand_height = abs(index_tip.y - wrist.y)
+        
+        # For high-five, hand should be more horizontal than vertical
+        # Also check that fingers are roughly at the same height (palm facing forward)
+        finger_heights = [hand_landmarks.landmark[tip_id].y for tip_id in finger_tips_ids]
+        height_variance = max(finger_heights) - min(finger_heights)
+        
+        # High-five: hand more horizontal, fingers at similar height
+        if (hand_width > hand_height * 0.8 and  # Hand is more horizontal
+            height_variance < 0.05):             # Fingers are at similar height
+            return True
+        
+        return False
+
+    def _is_thumbs_down(self, hand_landmarks):
+        """Checks for a proper thumbs-down gesture."""
+        # Get thumb landmarks
+        thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+        thumb_ip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP]
+        thumb_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_MCP]
+        wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
+        
+        # For a proper thumbs down, we need:
+        # 1. Thumb pointing downward (tip below IP joint)
+        # 2. Other fingers curled in a fist
+        # 3. Hand orientation should be more vertical than horizontal
+        
+        # Check that thumb is extended downward (tip below IP joint)
+        if thumb_tip.y > thumb_ip.y:
+            # Check that other fingers are curled (fist-like position)
+            finger_tips = [
+                mp_hands.HandLandmark.INDEX_FINGER_TIP,
+                mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
+                mp_hands.HandLandmark.RING_FINGER_TIP,
+                mp_hands.HandLandmark.PINKY_TIP
+            ]
+            finger_pips = [
+                mp_hands.HandLandmark.INDEX_FINGER_PIP,
+                mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
+                mp_hands.HandLandmark.RING_FINGER_PIP,
+                mp_hands.HandLandmark.PINKY_PIP
+            ]
+            
+            # Check if other fingers are curled (not extended)
+            fingers_curled = True
+            for i in range(len(finger_tips)):
+                tip_y = hand_landmarks.landmark[finger_tips[i]].y
+                pip_y = hand_landmarks.landmark[finger_pips[i]].y
+                if tip_y < pip_y - 0.01:  # Finger is extended (with small threshold)
+                    fingers_curled = False
+                    break
+            
+            # Check hand orientation - for thumbs down, the hand should be more vertical
+            # Compare wrist to finger positions to determine hand orientation
+            index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+            pinky_tip = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP]
+            
+            # Calculate hand width vs height
+            hand_width = abs(index_tip.x - pinky_tip.x)
+            hand_height = abs(thumb_tip.y - wrist.y)
+            
+            # Check that thumb is the lowest point of the hand
+            # Get all finger tips to compare with thumb
+            all_finger_tips = [
+                hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP],
+                hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP],
+                hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP],
+                hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP]
+            ]
+            
+            # Check if thumb is lower than all other finger tips
+            thumb_is_lowest = True
+            for finger_tip in all_finger_tips:
+                if thumb_tip.y <= finger_tip.y:  # Thumb is not lower than this finger
+                    thumb_is_lowest = False
+                    break
+            
+            # For thumbs down, hand should be more vertical than horizontal
+            # Also ensure thumb is pointing significantly downward and is the lowest point
+            if (hand_height > hand_width * 0.8 and  # Hand is more vertical
+                thumb_tip.y > wrist.y + 0.05 and    # Thumb is significantly below wrist
+                thumb_is_lowest and                  # Thumb is the lowest point
+                fingers_curled):
+                return True
+        
+        return False
+
+    def _is_middle_finger(self, hand_landmarks):
+        """Checks for a middle finger gesture (flipping off)."""
+        # Check if middle finger is extended while others are curled
+        middle_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+        middle_pip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_PIP]
+        
+        # Middle finger should be extended (tip above PIP)
+        if middle_tip.y >= middle_pip.y:
+            return False
+        
+        # Check that other fingers (except thumb) are curled
+        finger_tips = [
+            mp_hands.HandLandmark.INDEX_FINGER_TIP,
+            mp_hands.HandLandmark.RING_FINGER_TIP,
+            mp_hands.HandLandmark.PINKY_TIP
+        ]
+        finger_pips = [
+            mp_hands.HandLandmark.INDEX_FINGER_PIP,
+            mp_hands.HandLandmark.RING_FINGER_PIP,
+            mp_hands.HandLandmark.PINKY_PIP
+        ]
+        
+        # Check if other fingers are curled (not extended)
+        for i in range(len(finger_tips)):
+            tip_y = hand_landmarks.landmark[finger_tips[i]].y
+            pip_y = hand_landmarks.landmark[finger_pips[i]].y
+            if tip_y < pip_y:  # Finger is extended
+                return False
+        
         return True
 
     def _draw_info_text(self, frame, custom_text=None):
@@ -942,13 +1209,43 @@ class MultiModelTrackerApp:
 
             high_five_count = 0
             high_five_detected = False
-            # --- Green DrawingSpec for high five ---
+            thumbs_down_detected = False
+            middle_finger_detected = False
+            current_gesture = None
+            current_finger_count = None
+            
+            # --- Hand detection and gesture tracking ---
             if (self.checkboxes['hand_detection']['checked'] and 
                 last_hand_results and last_hand_results.multi_hand_landmarks):
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
+                    # Check for high five gesture first
                     if self._is_high_five(hand_landmarks):
                         high_five_count += 1
                         high_five_detected = True
+                        # Cancel any ongoing gesture detection when high-five is detected
+                        current_gesture = None
+                        self.gesture_start_time = None
+                        self.current_gesture = None
+                    # Check for middle finger gesture
+                    elif self._is_middle_finger(hand_landmarks):
+                        middle_finger_detected = True
+                        # Cancel any ongoing gesture detection when middle finger is detected
+                        current_gesture = None
+                        self.gesture_start_time = None
+                        self.current_gesture = None
+                    # Check for thumbs down gesture
+                    elif self._is_thumbs_down(hand_landmarks):
+                        thumbs_down_detected = True
+                        # Cancel any ongoing gesture detection when thumbs-down is detected
+                        current_gesture = None
+                        self.gesture_start_time = None
+                        self.current_gesture = None
+                    else:
+                        # Only count fingers for gesture detection if not in special gesture positions
+                        finger_count = self._count_fingers(hand_landmarks)
+                        current_finger_count = finger_count
+                        if 1 <= finger_count <= 4:
+                            current_gesture = finger_count
 
             # --- High five duration logic ---
             now = time.time()
@@ -968,6 +1265,30 @@ class MultiModelTrackerApp:
                     else:
                         self.high_five_start_time = None
                         self.high_five_active = False
+            
+            # --- Gesture duration logic ---
+            if current_gesture is not None and not high_five_detected and not thumbs_down_detected and not middle_finger_detected:
+                if self.gesture_start_time is None or self.current_gesture != current_gesture:
+                    self.gesture_start_time = now
+                    self.current_gesture = current_gesture
+                elif now - self.gesture_start_time >= self.gesture_duration:
+                    # Gesture held for required duration, trigger activation
+                    self._handle_gesture_activation(current_gesture)
+                    # Reset gesture tracking to stop progress bar
+                    self.gesture_start_time = None
+                    self.current_gesture = None
+                    current_gesture = None  # Also reset the local variable
+            elif thumbs_down_detected:
+                # Handle thumbs-down deactivation
+                self._handle_gesture_deactivation()
+                # Reset gesture tracking after deactivation
+                self.gesture_start_time = None
+                self.current_gesture = None
+                current_gesture = None
+            else:
+                # No gesture detected or special gestures detected, reset tracking
+                self.gesture_start_time = None
+                self.current_gesture = None
             # --- ASCII effect ---
             if (self.high_five_active and 
                 self.checkboxes['ascii_effect']['checked']):
@@ -1111,6 +1432,8 @@ class MultiModelTrackerApp:
 
             # --- Draw hand landmarks (after all effects are applied) ---
             green_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4)
+            orange_spec = mp_drawing.DrawingSpec(color=(0, 165, 255), thickness=2, circle_radius=4)  # BGR: orange
+            red_spec = mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=4)
             white_spec = mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=2, circle_radius=4)
             if (self.checkboxes['hand_detection']['checked'] and 
                 last_hand_results and last_hand_results.multi_hand_landmarks):
@@ -1120,11 +1443,31 @@ class MultiModelTrackerApp:
                             display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
                             green_spec, green_spec
                         )
+                    elif self._is_middle_finger(hand_landmarks):
+                        mp_drawing.draw_landmarks(
+                            display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            red_spec, red_spec
+                        )
+                    elif self._is_thumbs_down(hand_landmarks):
+                        mp_drawing.draw_landmarks(
+                            display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                            orange_spec, orange_spec
+                        )
                     else:
                         mp_drawing.draw_landmarks(
                             display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
                             white_spec, white_spec
                         )
+
+            # --- Draw gesture progress (before haptic text) ---
+            if self.current_gesture is not None and self.gesture_start_time is not None:
+                now = time.time()
+                elapsed = now - self.gesture_start_time
+                progress = min(elapsed / self.gesture_duration, 1.0)
+                self._draw_gesture_progress(display_frame_interactive, self.current_gesture, progress)
+
+            # --- Draw finger count debug (always show) ---
+            self._draw_finger_count_debug(display_frame_interactive, current_finger_count)
 
             # --- Draw haptic text (on top of everything) ---
             self._draw_haptic_text(display_frame_interactive)

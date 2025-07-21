@@ -11,7 +11,7 @@ import queue
 USE_WEBCAM = True
 
 # Image paths
-SOURCE_IMAGE = "img/kevin-hart.jpg"  # Source face to swap from
+SOURCE_IMAGE = "img/cox.jpg"  # Source face to swap from
 TARGET_IMAGE = "img/jack-black.jpg"  # Target image to swap onto (when USE_WEBCAM = False)
 
 # Set to True to use seamless cloning, False for simple blending
