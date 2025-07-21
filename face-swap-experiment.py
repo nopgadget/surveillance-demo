@@ -11,7 +11,7 @@ import queue
 USE_WEBCAM = True
 
 # Image paths
-SOURCE_IMAGE = "img/musk.jpg"  # Source face to swap from
+SOURCE_IMAGE = "img/kevin-hart.jpg"  # Source face to swap from
 TARGET_IMAGE = "img/jack-black.jpg"  # Target image to swap onto (when USE_WEBCAM = False)
 
 # Set to True to use seamless cloning, False for simple blending
@@ -311,6 +311,19 @@ def process_face_swap(img2, source_data):
 # Preprocess source face once
 source_data = preprocess_source_face()
 
+WINDOW_NAME = "Face Swap"
+WINDOW_MAX_WIDTH = 1280
+WINDOW_MAX_HEIGHT = 720
+cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(WINDOW_NAME, WINDOW_MAX_WIDTH, WINDOW_MAX_HEIGHT)
+
+def resize_with_aspect_ratio(image, max_width, max_height):
+    h, w = image.shape[:2]
+    scale = min(max_width / w, max_height / h)
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+    return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
 if USE_WEBCAM:
     cap = cv2.VideoCapture(0)
     
@@ -329,14 +342,16 @@ if USE_WEBCAM:
             
             # Frame skipping for performance
             if not optimizer.should_process_frame():
-                cv2.imshow("Face Swap", img2)
+                img2_resized = resize_with_aspect_ratio(img2, WINDOW_MAX_WIDTH, WINDOW_MAX_HEIGHT)
+                cv2.imshow(WINDOW_NAME, img2_resized)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
                 continue
                 
             result = process_face_swap(img2, source_data)
+            result_resized = resize_with_aspect_ratio(result, WINDOW_MAX_WIDTH, WINDOW_MAX_HEIGHT)
             
-            cv2.imshow("Face Swap", result)
+            cv2.imshow(WINDOW_NAME, result_resized)
             
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -352,8 +367,9 @@ else:
         exit()
         
     result = process_face_swap(img2, source_data)
+    result_resized = resize_with_aspect_ratio(result, WINDOW_MAX_WIDTH, WINDOW_MAX_HEIGHT)
 
-    cv2.imshow("Face Swap", result)
+    cv2.imshow(WINDOW_NAME, result_resized)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     optimizer.cleanup()
