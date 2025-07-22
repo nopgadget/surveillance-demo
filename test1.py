@@ -39,7 +39,7 @@ class Config:
     window_name_crowd = "People Counter"
     window_name_interactive = "Interactive"
     info_text = "No data is retained, stored or shared."
-    info_text_interactive = "No data is retained, stored or shared. Hold up hand for additional effects."
+    info_text_interactive = "No data is retained, stored or shared. Use hand gestures for effects."
 
     logo_path = "img/odplogo.png"
     qr_code_path = "img/qr-code.png"
@@ -101,11 +101,11 @@ class MultiModelTrackerApp:
         self.checkboxes = {
             # 'yolo_tracking': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'YOLO Tracking'},
             'hand_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Hand Detection'},
-            'pose_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
-            'ascii_effect': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
-            'face_mesh': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
+            'pose_detection': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
+            'ascii_effect': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
+            'face_mesh': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
             'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
-            'face_blackout': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
+            'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
             'face_swap': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Swap'},
             'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'},
             'info_display': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Info & QR Code'},
@@ -153,11 +153,12 @@ class MultiModelTrackerApp:
         self.is_recording = False
         self.video_writer = None
 
-        self.high_five_start_time = None  # Track when high five starts
-        self.high_five_active = False     # Whether ASCII effect is active
+        # ASCII effect variables
         self.ascii_font_scale = 0.4       # Font scale for ASCII effect
         self.ascii_cell_size = 8          # Size of each ASCII cell
         self.ascii_chars = "@%#*+=-:. "   # Dark to light
+        self.ascii_start_time = None       # Track when ASCII effect starts
+        self.ascii_duration = 10.0        # Auto-disable ASCII after 10 seconds
         
         # Haptic text variables
         self.haptic_text = None
@@ -517,23 +518,36 @@ class MultiModelTrackerApp:
         if current_time - self.last_gesture_time < self.gesture_cooldown:
             return
         
-        # Map finger count to features
+        # Map finger count to features - each feature has its own hand position
         gesture_features = {
-            1: 'pose_detection',
-            2: 'ascii_effect', 
-            3: 'face_mesh',
-            4: 'face_blackout'
+            1: 'pose_detection',      # 1 finger = pose detection
+            2: 'ascii_effect',        # 2 fingers = ASCII effect
+            3: 'face_mesh',           # 3 fingers = face mesh
+            4: 'face_blackout',       # 4 fingers = face blackout
+            5: 'face_overlay'         # 5 fingers = face overlay
         }
         
         if finger_count in gesture_features:
             feature_name = gesture_features[finger_count]
             
-            # Only enable the feature (don't disable)
+            # Only enable the feature if it's not already enabled
             if feature_name in self.checkboxes and not self.checkboxes[feature_name]['checked']:
                 self.checkboxes[feature_name]['checked'] = True
-                self._show_haptic_text(f"{self.checkboxes[feature_name]['label']} enabled!")
+                
+                # Special handling for ASCII effect - start timer
+                if feature_name == 'ascii_effect':
+                    self.ascii_start_time = current_time
+                    self._show_haptic_text(f"{self.checkboxes[feature_name]['label']} enabled for 10 seconds!")
+                else:
+                    self._show_haptic_text(f"{self.checkboxes[feature_name]['label']} enabled!")
+                
                 self.last_gesture_time = current_time
                 print(f"Gesture {finger_count} fingers: {self.checkboxes[feature_name]['label']} enabled")
+            else:
+                # Feature is already enabled, show a different message
+                self._show_haptic_text(f"{self.checkboxes[feature_name]['label']} is already enabled!")
+                self.last_gesture_time = current_time
+                print(f"Gesture {finger_count} fingers: {self.checkboxes[feature_name]['label']} already enabled")
 
     def _handle_gesture_deactivation(self):
         """Handle thumbs-down gesture to deactivate finger-controllable features."""
@@ -544,7 +558,7 @@ class MultiModelTrackerApp:
             return
         
         # Features that can be deactivated by thumbs down
-        deactivatable_features = ['pose_detection', 'ascii_effect', 'face_mesh', 'face_blackout']
+        deactivatable_features = ['pose_detection', 'ascii_effect', 'face_mesh', 'face_blackout', 'face_overlay']
         
         deactivated_count = 0
         for feature_name in deactivatable_features:
@@ -579,7 +593,7 @@ class MultiModelTrackerApp:
         cv2.rectangle(frame, (margin, margin), (margin + bar_width, margin + bar_height), (255, 255, 255), 2)
         
         # Text
-        gesture_names = {1: "Pose", 2: "ASCII", 3: "Face Mesh", 4: "Face Blackout"}
+        gesture_names = {1: "Pose", 2: "ASCII", 3: "Face Mesh", 4: "Face Blackout", 5: "Face Overlay"}
         text = f"{gesture_names.get(gesture, f'{gesture} Fingers')}: {int(progress * 100)}%"
         cv2.putText(frame, text, (margin + 5, margin + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
@@ -612,44 +626,45 @@ class MultiModelTrackerApp:
         # Draw text
         cv2.putText(frame, text, (text_x, text_y), font, text_scale, (255, 255, 255), font_thickness)
 
-    def _is_high_five(self, hand_landmarks):
-        """Checks for a high-five gesture."""
-        # For high-five, all fingers should be extended
-        finger_tips_ids = [
-            mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_TIP,
-            mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.PINKY_TIP
-        ]
-        pip_joints_ids = [
-            mp_hands.HandLandmark.INDEX_FINGER_PIP, mp_hands.HandLandmark.MIDDLE_FINGER_PIP,
-            mp_hands.HandLandmark.RING_FINGER_PIP, mp_hands.HandLandmark.PINKY_PIP
-        ]
+    def _draw_censored_box(self, frame, hand_landmarks):
+        """Draw a black box with 'CENSORED' text over the middle finger gesture."""
+        h, w = frame.shape[:2]
         
-        # Check that all fingers are extended
-        for i in range(len(finger_tips_ids)):
-            if hand_landmarks.landmark[finger_tips_ids[i]].y > hand_landmarks.landmark[pip_joints_ids[i]].y:
-                return False
+        # Get hand bounding box
+        x_coords = [int(landmark.x * w) for landmark in hand_landmarks.landmark]
+        y_coords = [int(landmark.y * h) for landmark in hand_landmarks.landmark]
         
-        # Additional check: for high-five, the hand should be more horizontal than vertical
-        # This differentiates from 4 fingers pointing up
-        wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-        index_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-        pinky_tip = hand_landmarks.landmark[mp_hands.HandLandmark.PINKY_TIP]
+        # Calculate bounding box with some padding
+        min_x, max_x = min(x_coords), max(x_coords)
+        min_y, max_y = min(y_coords), max(y_coords)
         
-        # Calculate hand orientation
-        hand_width = abs(index_tip.x - pinky_tip.x)
-        hand_height = abs(index_tip.y - wrist.y)
+        # Add padding to make the box larger
+        padding = 30
+        min_x = max(0, min_x - padding)
+        max_x = min(w, max_x + padding)
+        min_y = max(0, min_y - padding)
+        max_y = min(h, max_y + padding)
         
-        # For high-five, hand should be more horizontal than vertical
-        # Also check that fingers are roughly at the same height (palm facing forward)
-        finger_heights = [hand_landmarks.landmark[tip_id].y for tip_id in finger_tips_ids]
-        height_variance = max(finger_heights) - min(finger_heights)
+        # Draw black rectangle
+        cv2.rectangle(frame, (min_x, min_y), (max_x, max_y), (0, 0, 0), -1)
         
-        # High-five: hand more horizontal, fingers at similar height
-        if (hand_width > hand_height * 0.8 and  # Hand is more horizontal
-            height_variance < 0.05):             # Fingers are at similar height
-            return True
+        # Add "CENSORED" text
+        text = "CENSORED"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_scale = 0.8
+        font_thickness = 2
         
-        return False
+        # Get text size
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, text_scale, font_thickness)
+        
+        # Center text in the box
+        text_x = min_x + (max_x - min_x - text_width) // 2
+        text_y = min_y + (max_y - min_y + text_height) // 2
+        
+        # Draw text
+        cv2.putText(frame, text, (text_x, text_y), font, text_scale, (255, 255, 255), font_thickness)
+
+
 
     def _is_thumbs_down(self, hand_landmarks):
         """Checks for a proper thumbs-down gesture."""
@@ -1207,8 +1222,6 @@ class MultiModelTrackerApp:
                 except queue.Empty:
                     pass
 
-            high_five_count = 0
-            high_five_detected = False
             thumbs_down_detected = False
             middle_finger_detected = False
             current_gesture = None
@@ -1218,16 +1231,8 @@ class MultiModelTrackerApp:
             if (self.checkboxes['hand_detection']['checked'] and 
                 last_hand_results and last_hand_results.multi_hand_landmarks):
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
-                    # Check for high five gesture first
-                    if self._is_high_five(hand_landmarks):
-                        high_five_count += 1
-                        high_five_detected = True
-                        # Cancel any ongoing gesture detection when high-five is detected
-                        current_gesture = None
-                        self.gesture_start_time = None
-                        self.current_gesture = None
                     # Check for middle finger gesture
-                    elif self._is_middle_finger(hand_landmarks):
+                    if self._is_middle_finger(hand_landmarks):
                         middle_finger_detected = True
                         # Cancel any ongoing gesture detection when middle finger is detected
                         current_gesture = None
@@ -1241,43 +1246,46 @@ class MultiModelTrackerApp:
                         self.gesture_start_time = None
                         self.current_gesture = None
                     else:
-                        # Only count fingers for gesture detection if not in special gesture positions
+                        # Count fingers for gesture detection if not in special gesture positions
                         finger_count = self._count_fingers(hand_landmarks)
                         current_finger_count = finger_count
-                        if 1 <= finger_count <= 4:
+                        if 1 <= finger_count <= 5:
                             current_gesture = finger_count
 
-            # --- High five duration logic ---
-            now = time.time()
-            if high_five_detected:
-                if self.high_five_start_time is None:
-                    self.high_five_start_time = now
-                elif now - self.high_five_start_time >= 1.0:  # 1 second for face mesh overlay
-                    if not self.high_five_active:
-                        self.high_five_active = True
-                        self._show_haptic_text("Effects enabled due to high five!")
-            else:
-                if self.high_five_start_time is not None:
-                    self.high_five_start_time = None
-                    if self.high_five_active:
-                        self.high_five_active = False
-                        self._show_haptic_text("Effects disabled due to no high five")
-                    else:
-                        self.high_five_start_time = None
-                        self.high_five_active = False
-            
             # --- Gesture duration logic ---
-            if current_gesture is not None and not high_five_detected and not thumbs_down_detected and not middle_finger_detected:
-                if self.gesture_start_time is None or self.current_gesture != current_gesture:
-                    self.gesture_start_time = now
-                    self.current_gesture = current_gesture
-                elif now - self.gesture_start_time >= self.gesture_duration:
-                    # Gesture held for required duration, trigger activation
-                    self._handle_gesture_activation(current_gesture)
-                    # Reset gesture tracking to stop progress bar
+            now = time.time()
+            if current_gesture is not None and not thumbs_down_detected and not middle_finger_detected:
+                # Check if the gesture corresponds to an already enabled feature
+                gesture_features = {
+                    1: 'pose_detection',
+                    2: 'ascii_effect', 
+                    3: 'face_mesh',
+                    4: 'face_blackout',
+                    5: 'face_overlay'
+                }
+                
+                feature_name = gesture_features.get(current_gesture)
+                feature_already_enabled = (feature_name in self.checkboxes and 
+                                        self.checkboxes[feature_name]['checked'])
+                
+                # Don't show progress for already enabled features
+                if feature_already_enabled:
+                    # Reset gesture tracking for already enabled features
                     self.gesture_start_time = None
                     self.current_gesture = None
-                    current_gesture = None  # Also reset the local variable
+                    current_gesture = None
+                else:
+                    # Normal gesture tracking for disabled features
+                    if self.gesture_start_time is None or self.current_gesture != current_gesture:
+                        self.gesture_start_time = now
+                        self.current_gesture = current_gesture
+                    elif now - self.gesture_start_time >= self.gesture_duration:
+                        # Gesture held for required duration, trigger activation
+                        self._handle_gesture_activation(current_gesture)
+                        # Reset gesture tracking to stop progress bar
+                        self.gesture_start_time = None
+                        self.current_gesture = None
+                        current_gesture = None  # Also reset the local variable
             elif thumbs_down_detected:
                 # Handle thumbs-down deactivation
                 self._handle_gesture_deactivation()
@@ -1289,16 +1297,27 @@ class MultiModelTrackerApp:
                 # No gesture detected or special gestures detected, reset tracking
                 self.gesture_start_time = None
                 self.current_gesture = None
-            # --- ASCII effect ---
-            if (self.high_five_active and 
-                self.checkboxes['ascii_effect']['checked']):
-                # Request ASCII conversion if not already requested
-                if not self.ascii_request_event.is_set():
-                    self.ascii_request_event.set()
-                # Use the latest ASCII frame if available
-                with self.ascii_lock:
-                    if self.latest_ascii_frame is not None:
-                        display_frame_interactive = self.latest_ascii_frame.copy()
+            # --- ASCII effect with auto-disable ---
+            if (self.checkboxes['ascii_effect']['checked']):
+                # Check if ASCII effect should auto-disable
+                if self.ascii_start_time is not None:
+                    elapsed_time = now - self.ascii_start_time
+                    if elapsed_time >= self.ascii_duration:
+                        # Auto-disable ASCII effect after duration
+                        self.checkboxes['ascii_effect']['checked'] = False
+                        self.ascii_start_time = None
+                        self._show_haptic_text("ASCII effect auto-disabled!")
+                        # Reset ASCII frame
+                        with self.ascii_lock:
+                            self.latest_ascii_frame = None
+                    else:
+                        # Request ASCII conversion if not already requested
+                        if not self.ascii_request_event.is_set():
+                            self.ascii_request_event.set()
+                        # Use the latest ASCII frame if available
+                        with self.ascii_lock:
+                            if self.latest_ascii_frame is not None:
+                                display_frame_interactive = self.latest_ascii_frame.copy()
             else:
                 # Reset ASCII frame when not in ASCII mode
                 with self.ascii_lock:
@@ -1343,22 +1362,20 @@ class MultiModelTrackerApp:
                 cv2.rectangle(display_frame_interactive, (fps_x - 5, fps_y + 5), (fps_x + fps_w + 5, fps_y - fps_h - 5), (0,0,0), -1)
                 cv2.putText(display_frame_interactive, fps_string, (fps_x, fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
-            # --- Overlay face on high five (after ASCII effect) ---
-            if (self.high_five_active and 
-                self.checkboxes['face_overlay']['checked']):
+            # --- Overlay face (after ASCII effect) ---
+            if (self.checkboxes['face_overlay']['checked']):
                 display_frame_interactive = self._overlay_faces(display_frame_interactive, last_face_mesh_results)
 
-            # --- Face blackout on high five (before face mesh) ---
-            if (self.high_five_active and 
-                self.checkboxes['face_blackout']['checked']):
+            # --- Face blackout (before face mesh) ---
+            if (self.checkboxes['face_blackout']['checked']):
                 display_frame_interactive = self._blackout_faces(display_frame_interactive, last_face_mesh_results)
 
-            # --- Face swap (independent of high five) ---
+            # --- Face swap (independent of other effects) ---
             if self.checkboxes['face_swap']['checked']:
                 display_frame_interactive = self._apply_face_swap(display_frame_interactive)
 
             # Run FaceMesh overlay processing on the original frame if enabled
-            if self.high_five_active and self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
+            if self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
                 # Process on the original frame, not the ASCII frame
                 with self.frame_lock:
                     if self.latest_frame is not None:
@@ -1367,9 +1384,8 @@ class MultiModelTrackerApp:
                         img_rgb_overlay.flags.writeable = False
                         last_face_mesh_overlay_results = self.face_mesh_overlay.process(img_rgb_overlay)
 
-            # --- Face mesh overlay on high five ---
-            if (self.high_five_active and 
-                self.checkboxes['face_mesh']['checked']):
+            # --- Face mesh overlay ---
+            if (self.checkboxes['face_mesh']['checked']):
                 if (
                     mp_face_mesh is not None and
                     last_face_mesh_overlay_results and
@@ -1431,23 +1447,14 @@ class MultiModelTrackerApp:
                 )
 
             # --- Draw hand landmarks (after all effects are applied) ---
-            green_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=4)
             orange_spec = mp_drawing.DrawingSpec(color=(0, 165, 255), thickness=2, circle_radius=4)  # BGR: orange
-            red_spec = mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=4)
             white_spec = mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=2, circle_radius=4)
             if (self.checkboxes['hand_detection']['checked'] and 
                 last_hand_results and last_hand_results.multi_hand_landmarks):
                 for hand_landmarks in last_hand_results.multi_hand_landmarks:
-                    if self._is_high_five(hand_landmarks):
-                        mp_drawing.draw_landmarks(
-                            display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                            green_spec, green_spec
-                        )
-                    elif self._is_middle_finger(hand_landmarks):
-                        mp_drawing.draw_landmarks(
-                            display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                            red_spec, red_spec
-                        )
+                    if self._is_middle_finger(hand_landmarks):
+                        # Draw black box with "CENSORED" text over the hand
+                        self._draw_censored_box(display_frame_interactive, hand_landmarks)
                     elif self._is_thumbs_down(hand_landmarks):
                         mp_drawing.draw_landmarks(
                             display_frame_interactive, hand_landmarks, mp_hands.HAND_CONNECTIONS,
