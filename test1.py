@@ -116,7 +116,7 @@ class MultiModelTrackerApp:
         self.checkboxes_visible = True
         
         # Track previous second window state to handle hiding
-        self.previous_second_window_state = True
+        self.previous_second_window_state = False
 
         # --- Load Assets & Models ---
         self._setup_screen()
@@ -205,21 +205,15 @@ class MultiModelTrackerApp:
             try:
                 screen = screeninfo.get_monitors()[0]
                 self.width, self.height = screen.width, screen.height
-                cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_NORMAL)
-                cv2.setWindowProperty(self.config.window_name_crowd, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
                 cv2.namedWindow(self.config.window_name_interactive, cv2.WINDOW_NORMAL)
                 cv2.setWindowProperty(self.config.window_name_interactive, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
             except screeninfo.common.ScreenInfoError:
                 print("Could not get screen info. Using 1280x720.")
                 self.width, self.height = 1280, 720
-                cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_AUTOSIZE)
-                cv2.resizeWindow(self.config.window_name_crowd, self.width, self.height)
                 cv2.namedWindow(self.config.window_name_interactive, cv2.WINDOW_AUTOSIZE)
                 cv2.resizeWindow(self.config.window_name_interactive, self.width, self.height)
         else:
             self.width, self.height = 1280, 720
-            cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_AUTOSIZE)
-            cv2.resizeWindow(self.config.window_name_crowd, self.width, self.height)
             cv2.namedWindow(self.config.window_name_interactive, cv2.WINDOW_AUTOSIZE)
             cv2.resizeWindow(self.config.window_name_interactive, self.width, self.height)
 
@@ -1292,6 +1286,14 @@ class MultiModelTrackerApp:
             # Handle second window visibility
             current_second_window_state = self.checkboxes['second_window']['checked']
             if current_second_window_state:
+                # Create the window if it doesn't exist
+                if not self.previous_second_window_state:
+                    if self.config.fullscreen:
+                        cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_NORMAL)
+                        cv2.setWindowProperty(self.config.window_name_crowd, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+                    else:
+                        cv2.namedWindow(self.config.window_name_crowd, cv2.WINDOW_AUTOSIZE)
+                        cv2.resizeWindow(self.config.window_name_crowd, self.width, self.height)
                 cv2.imshow(self.config.window_name_crowd, display_frame_crowd)
             elif self.previous_second_window_state and not current_second_window_state:
                 # Hide the window when it was previously shown but now disabled
