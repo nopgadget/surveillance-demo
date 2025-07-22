@@ -44,7 +44,6 @@ class Config:
     logo_path = "img/odplogo.png"
     qr_code_path = "img/qr-code.png"
     face_overlay_path = "img/generic-face.png"  # Path to generic face image for overlay
-    face_swap_source_path = "img/musk.jpg"  # Path to source face for face swap
 
     model_path = "models/yolo11n"
     """Model path shouldn't include extension, it will be automatically determined"""
@@ -106,7 +105,6 @@ class MultiModelTrackerApp:
             'face_mesh': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
             'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
             'face_blackout': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
-            'face_swap': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Swap'},
             'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'},
             'info_display': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Info & QR Code'},
             'second_window': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Second Window'}
@@ -190,9 +188,6 @@ class MultiModelTrackerApp:
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
-
-        # Initialize face swap components
-        self._setup_face_swap()
 
     def _setup_screen(self):
         if self.config.fullscreen:
@@ -302,89 +297,6 @@ class MultiModelTrackerApp:
         self.logo = self._load_image(self.config.logo_path)
         self.qr_code = self._load_image(self.config.qr_code_path)
         self.face_overlay = self._load_image(self.config.face_overlay_path)
-
-    def _setup_face_swap(self):
-        """Initialize face swap components."""
-        try:
-            self.face_swap_source = cv2.imread(self.config.face_swap_source_path)
-            if self.face_swap_source is None:
-                print(f"Warning: Face swap source image not found at {self.config.face_swap_source_path}")
-                self.face_swap_available = False
-                return
-
-            self.face_swap_source_gray = cv2.cvtColor(self.face_swap_source, cv2.COLOR_BGR2GRAY)
-            self.face_swap_mask = np.zeros_like(self.face_swap_source_gray)
-
-            # Initialize dlib face detector and predictor
-            self.face_detector = dlib.get_frontal_face_detector()
-            self.face_predictor = dlib.shape_predictor("models/shape_predictor_68_face_landmarks.dat")
-
-            # Detect faces in source image
-            faces = self.face_detector(self.face_swap_source_gray, 1)
-            if len(faces) == 0:
-                print("No faces detected in face swap source image")
-                self.face_swap_available = False
-                return
-
-            face = faces[0]
-            landmarks = self.face_predictor(self.face_swap_source_gray, face)
-            self.face_swap_landmark_points = []
-            for n in range(0, 68):
-                x = landmarks.part(n).x
-                y = landmarks.part(n).y
-                self.face_swap_landmark_points.append((x, y))
-
-            points = np.array(self.face_swap_landmark_points, np.int32)
-            convexhull = cv2.convexHull(points)
-            cv2.fillConvexPoly(self.face_swap_mask, convexhull, (255,))
-
-            self.face_swap_face_image = cv2.bitwise_and(self.face_swap_source, self.face_swap_source, mask=self.face_swap_mask)
-
-            rect = cv2.boundingRect(convexhull)
-            subdiv = cv2.Subdiv2D(rect)
-            subdiv.insert(self.face_swap_landmark_points)
-            triangles = subdiv.getTriangleList()
-            triangles = np.array(triangles, dtype=np.int32)
-
-            self.face_swap_indexes_triangles = []
-            for t in triangles:
-                pt1 = (t[0], t[1])
-                pt2 = (t[2], t[3])
-                pt3 = (t[4], t[5])
-
-                index_pt1 = np.where((points == pt1).all(axis=1))
-                index_pt1 = self._extract_index_nparray(index_pt1)
-
-                index_pt2 = np.where((points == pt2).all(axis=1))
-                index_pt2 = self._extract_index_nparray(index_pt2)
-                
-                index_pt3 = np.where((points == pt3).all(axis=1))
-                index_pt3 = self._extract_index_nparray(index_pt3)
-
-                if index_pt1 is not None and index_pt2 is not None and index_pt3 is not None:
-                    triangle = [index_pt1, index_pt2, index_pt3]
-                    self.face_swap_indexes_triangles.append(triangle)
-
-            self.face_swap_available = True
-            print("Face swap initialized successfully")
-        except Exception as e:
-            print(f"Error initializing face swap: {e}")
-            self.face_swap_available = False
-            # Set default values to prevent crashes
-            self.face_swap_source = None
-            self.face_swap_source_gray = None
-            self.face_swap_mask = None
-            self.face_swap_face_image = None
-            self.face_swap_landmark_points = []
-            self.face_swap_indexes_triangles = []
-
-    def _extract_index_nparray(self, nparray):
-        """Extract index from numpy array."""
-        index = None
-        for num in nparray[0]:
-            index = num
-            break
-        return index
 
     def _load_image(self, path):
         img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
@@ -734,122 +646,6 @@ class MultiModelTrackerApp:
                     
         return frame
 
-    def _apply_face_swap(self, frame):
-        """Apply face swap to the frame."""
-        if not self.face_swap_available or not hasattr(self, 'face_swap_indexes_triangles') or self.face_swap_source is None:
-            return frame
-
-        img2_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        img2_new_face = np.zeros_like(frame)
-        
-        faces2 = self.face_detector(img2_gray, 1)
-        
-        if len(faces2) > 0:
-            for face2 in faces2:
-                img2_new_face = np.zeros_like(frame)
-                
-                landmarks2 = self.face_predictor(img2_gray, face2)
-                landmark_points2 = []
-                for n in range(0, 68):
-                    x = landmarks2.part(n).x
-                    y = landmarks2.part(n).y
-                    landmark_points2.append((x, y))
-
-                img2_face_mask = np.zeros_like(img2_gray)
-                points2 = np.array(landmark_points2, np.int32)
-                convexhull2 = cv2.convexHull(points2)
-                cv2.fillConvexPoly(img2_face_mask, convexhull2, (255,))
-
-                for triangle_index in self.face_swap_indexes_triangles:
-                    tr1_pt1 = self.face_swap_landmark_points[triangle_index[0]]
-                    tr1_pt2 = self.face_swap_landmark_points[triangle_index[1]]
-                    tr1_pt3 = self.face_swap_landmark_points[triangle_index[2]]
-                    triangle1 = np.array([tr1_pt1, tr1_pt2, tr1_pt3], np.int32)
-
-                    rect1 = cv2.boundingRect(triangle1)
-                    (x, y, w, h) = rect1
-                    cropped_triangle = self.face_swap_source[y: y + h, x: x + w]
-                    cropped_tr1_mask = np.zeros((h, w), np.uint8)
-
-                    points = np.array([
-                        [tr1_pt1[0] - x, tr1_pt1[1] - y],
-                        [tr1_pt2[0] - x, tr1_pt2[1] - y],
-                        [tr1_pt3[0] - x, tr1_pt3[1] - y]
-                    ], np.int32)
-
-                    cv2.fillConvexPoly(cropped_tr1_mask, points, (255,))
-                    cropped_triangle = cv2.bitwise_and(cropped_triangle, cropped_triangle, mask=cropped_tr1_mask)
-
-                    tr2_pt1 = landmark_points2[triangle_index[0]]
-                    tr2_pt2 = landmark_points2[triangle_index[1]]
-                    tr2_pt3 = landmark_points2[triangle_index[2]]
-                    triangle2 = np.array([tr2_pt1, tr2_pt2, tr2_pt3], np.int32)
-
-                    rect2 = cv2.boundingRect(triangle2)
-                    (x, y, w, h) = rect2
-                    cropped_triangle2 = frame[y: y + h, x: x + w]
-
-                    cropped_tr2_mask = np.zeros((h, w), np.uint8)
-
-                    points2 = np.array([
-                        [tr2_pt1[0] - x, tr2_pt1[1] - y],
-                        [tr2_pt2[0] - x, tr2_pt2[1] - y],
-                        [tr2_pt3[0] - x, tr2_pt3[1] - y]
-                    ], np.int32)
-
-                    cv2.fillConvexPoly(cropped_tr2_mask, points2, (255,))
-                    cropped_triangle2 = cv2.bitwise_and(cropped_triangle2, cropped_triangle2, mask=cropped_tr2_mask)
-
-                    src_points = points.astype(np.float32)
-                    dst_points = points2.astype(np.float32)
-                    
-                    if src_points.shape[0] == 3 and dst_points.shape[0] == 3:
-                        try:
-                            M = cv2.getAffineTransform(src_points, dst_points)
-                            warped_triangle = cv2.warpAffine(cropped_triangle, M, (w, h))
-                            
-                            warped_mask = cv2.warpAffine(cropped_tr1_mask, M, (w, h))
-                            
-                            triangle_area = img2_new_face[y:y + h, x:x + w]
-                            
-                            warped_mask_3d = cv2.cvtColor(warped_mask, cv2.COLOR_GRAY2BGR)
-                            warped_mask_3d = warped_mask_3d.astype(np.float32) / 255.0
-                            
-                            alpha = warped_mask_3d
-                            beta = 1.0 - alpha
-                            blended = cv2.addWeighted(triangle_area, 1.0, warped_triangle, 1.0, 0)
-                            blended = blended * beta + warped_triangle * alpha
-                            img2_new_face[y:y + h, x:x + w] = blended.astype(np.uint8)
-                        except cv2.error:
-                            continue
-
-                img2_new_face_gray = cv2.cvtColor(img2_new_face, cv2.COLOR_BGR2GRAY)
-                _, face_mask = cv2.threshold(img2_new_face_gray, 1, 255, cv2.THRESH_BINARY)
-
-                face_mask = cv2.GaussianBlur(face_mask, (3, 3), 0)
-                face_mask = cv2.cvtColor(face_mask, cv2.COLOR_GRAY2BGR)
-                face_mask = face_mask.astype(np.float32) / 255.0
-
-                background = frame.astype(np.float32)
-                new_face = img2_new_face.astype(np.float32)
-
-                result = background * (1.0 - face_mask) + new_face * face_mask
-                result = result.astype(np.uint8)
-
-                face_mask_gray = cv2.cvtColor(face_mask.astype(np.uint8) * 255, cv2.COLOR_BGR2GRAY)
-                _, face_mask_binary = cv2.threshold(face_mask_gray, 127, 255, cv2.THRESH_BINARY)
-
-                moments = cv2.moments(face_mask_binary)
-                if moments["m00"] != 0:
-                    center_x = int(moments["m10"] / moments["m00"])
-                    center_y = int(moments["m01"] / moments["m00"])
-                    center = (center_x, center_y)
-                    
-                    result = cv2.seamlessClone(img2_new_face, frame, face_mask_binary, center, cv2.NORMAL_CLONE)
-                
-                frame = result
-        return frame
-
     def _pose_processor_thread(self):
         """Processes frames with MediaPipe Pose by accessing the shared frame."""
         while not self.stop_event.is_set():
@@ -1031,20 +827,6 @@ class MultiModelTrackerApp:
             if (self.high_five_active and 
                 self.checkboxes['face_blackout']['checked']):
                 display_frame_interactive = self._blackout_faces(display_frame_interactive, last_face_mesh_results)
-
-            # --- Face swap (independent of high five) ---
-            if self.checkboxes['face_swap']['checked']:
-                display_frame_interactive = self._apply_face_swap(display_frame_interactive)
-
-            # Run FaceMesh overlay processing on the original frame if enabled
-            if self.high_five_active and self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
-                # Process on the original frame, not the ASCII frame
-                with self.frame_lock:
-                    if self.latest_frame is not None:
-                        original_frame = self.latest_frame.copy()
-                        img_rgb_overlay = cv2.cvtColor(original_frame, cv2.COLOR_BGR2RGB)
-                        img_rgb_overlay.flags.writeable = False
-                        last_face_mesh_overlay_results = self.face_mesh_overlay.process(img_rgb_overlay)
 
             # --- Face mesh overlay on high five ---
             if (self.high_five_active and 
