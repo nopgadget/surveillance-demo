@@ -356,6 +356,9 @@ class MultiModelTrackerApp:
             min_tracking_confidence=0.5,
             max_num_hands=10) as hands:
             while not self.stop_event.is_set():
+                if not self.checkboxes['hand_detection']['checked']:
+                    time.sleep(0.1)
+                    continue
                 frame_to_process = None
                 with self.frame_lock:
                     if self.latest_frame is not None:
@@ -828,6 +831,10 @@ class MultiModelTrackerApp:
         if self.face_mesh is None or self.face_results_queue is None:
             return
         while not self.stop_event.is_set():
+            # Only process if any face-mesh-dependent effect is enabled
+            if not (self.checkboxes['face_mesh']['checked'] or self.checkboxes['face_overlay']['checked'] or self.checkboxes['face_blackout']['checked']):
+                time.sleep(0.1)
+                continue
             frame_to_process = None
             with self.frame_lock:
                 if self.latest_frame is not None:
@@ -933,6 +940,9 @@ class MultiModelTrackerApp:
     def _pose_processor_thread(self):
         """Processes frames with MediaPipe Pose by accessing the shared frame."""
         while not self.stop_event.is_set():
+            if not self.checkboxes['pose_detection']['checked']:
+                time.sleep(0.1)
+                continue
             frame_to_process = None
             with self.frame_lock:
                 if self.latest_frame is not None:
