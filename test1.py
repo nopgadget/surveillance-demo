@@ -1184,9 +1184,6 @@ class MultiModelTrackerApp:
 
             # --- Face mesh overlay ---
             if (self.checkboxes['face_mesh']['checked']):
-            # --- Face mesh overlay on high five ---
-            if (self.high_five_active and 
-                self.checkboxes['face_mesh']['checked']):
                 if (
                     mp_face_mesh is not None and
                     last_face_mesh_overlay_results and
