@@ -113,7 +113,7 @@ class MultiModelTrackerApp:
         }
         
         # Checkbox visibility state
-        self.checkboxes_visible = True
+        self.checkboxes_visible = False
         
         # Track previous second window state to handle hiding
         self.previous_second_window_state = False
@@ -1130,8 +1130,12 @@ class MultiModelTrackerApp:
                 track_ids = last_yolo_results.boxes.id.int().cpu().tolist()
                 for box, track_id in zip(boxes, track_ids):
                     x1, y1, x2, y2 = box
+                    # Draw on crowd window
                     cv2.rectangle(display_frame_crowd, (x1, y1), (x2, y2), (255, 255, 255), 1)
                     cvzone.putTextRect(display_frame_crowd, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
+                    # Draw on interactive window
+                    cv2.rectangle(display_frame_interactive, (x1, y1), (x2, y2), (255, 255, 255), 1)
+                    cvzone.putTextRect(display_frame_interactive, f"{track_id}", (max(0, x1 + 10), max(35, y1 - 10)), scale=0.3, thickness=0, colorT=(0, 0, 0), colorR=(255, 255, 255), font=cv2.FONT_HERSHEY_SIMPLEX)
 
             # TODO: Re-enable this when we want to show the logo and QR code
             if self.checkboxes['info_display']['checked']:
