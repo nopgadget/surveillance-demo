@@ -202,7 +202,6 @@ class MultiModelTrackerApp:
 
         # Video navigation controls (only for video files)
         self.video_paused = False
-        self.video_frame_step = 5  # Number of frames to step with arrow keys
         self.is_video_file = self.config.stream_source == SOURCE_VIDEO
 
     def _toggle_video_pause(self):
@@ -210,21 +209,7 @@ class MultiModelTrackerApp:
         if self.is_video_file:
             self.video_paused = not self.video_paused
 
-    def _step_video_frame(self, direction):
-        """Step video frame forward or backward (only for video files)."""
-        if not self.is_video_file or not self.video_paused:
-            return
-            
-        current_frame = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
-        total_frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        
-        if direction == "forward":
-            new_frame = min(current_frame + self.video_frame_step, total_frames - 1)
-        else:  # backward
-            new_frame = max(current_frame - self.video_frame_step, 0)
-            
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, new_frame)
-        self._show_haptic_text(f"Frame {int(new_frame)}/{int(total_frames)}")
+
 
     def _setup_screen(self):
         if self.config.fullscreen:
@@ -1380,10 +1365,7 @@ class MultiModelTrackerApp:
                 break
             elif key == ord(' '):  # Space bar - toggle pause
                 self._toggle_video_pause()
-            elif key == 83:  # Right arrow key - step forward
-                self._step_video_frame("forward")
-            elif key == 81:  # Left arrow key - step backward
-                self._step_video_frame("backward")
+
         
         # Average FPS Calcuation
         end_frame_time = time.time()
