@@ -4,3 +4,4 @@ models/*
 vid/*
 .venv
 config.toml
+__pycache__

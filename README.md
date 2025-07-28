@@ -41,6 +41,7 @@ The application captures a live video stream (RTSP, webcam, or video file) and p
 * **Privacy-First Design**: The system is explicitly designed **not to save any personal data**. A clear on-screen disclaimer runs at all times to ensure informed consent from anyone in view.
 * **Interactive Controls**: Allows for on-the-fly interaction to demonstrate the system's capabilities.
 * **Informational Overlays**: Displays a company logo, a QR code for more information, and dynamic text to inform viewers about the demo's purpose.
+* **Modular Architecture**: Clean separation of concerns with each component in its own module for better maintainability and debugging.
 
 ---
 
@@ -110,3 +111,75 @@ stream_source = "webcam"  # Options: "webcam", "rtsp", "video"
 webcam_id = 0             # Camera device ID (usually 0 for built-in webcam)
 ```
 
+---
+
+## Running the Application
+
+Run the application using the launcher script:
+
+```bash
+python run.py
+```
+
+This provides proper error handling and ensures all dependencies are correctly loaded.
+
+---
+
+## Project Structure
+
+The application is organized into a modular structure for better maintainability:
+
+```
+surveillance-demo/
+├── src/                          # Modular source code
+│   ├── __init__.py              # Package initialization
+│   ├── main.py                  # Main application entry point
+│   ├── stream_source.py         # StreamSource enum
+│   ├── app_config.py            # AppConfig dataclass
+│   ├── video_source.py          # VideoSource class
+│   ├── model_manager.py         # ModelManager class
+│   ├── ui_manager.py            # UIManager class
+│   ├── effect_processor.py      # EffectProcessor classes
+│   ├── gesture_recognizer.py    # GestureRecognizer class
+│   ├── thread_manager.py        # ThreadManager class
+│   └── surveillance_demo.py     # Main SurveillanceDemo class
+├── run.py                       # Application launcher script
+├── test_imports.py              # Import test script
+└── README.md                    # This file
+```
+
+### Class Responsibilities
+
+- **StreamSource**: Defines video source types (RTSP, Webcam, Video)
+- **AppConfig**: Handles configuration loading and management
+- **VideoSource**: Manages video input from different sources
+- **ModelManager**: Handles YOLO and MediaPipe model initialization
+- **UIManager**: Manages UI elements, checkboxes, and user interactions
+- **EffectProcessor**: Abstract base for video effects (ASCII, Face Overlay)
+- **GestureRecognizer**: Handles hand gesture detection and interpretation
+- **ThreadManager**: Manages threading for concurrent processing
+- **SurveillanceDemo**: Main orchestrator that coordinates all components
+
+### Benefits of the Modular Structure
+
+1. **Separation of Concerns**: Each class has its own file with clear responsibilities
+2. **Easier Debugging**: You can focus on specific components
+3. **Better Testing**: Individual components can be tested in isolation
+4. **Maintainability**: Changes to one component don't affect others
+5. **Reusability**: Components can be reused in other projects
+6. **Readability**: Smaller files are easier to understand
+
+---
+
+## Development
+
+With this modular structure, you can now:
+
+- **Add new effects** by extending `EffectProcessor`
+- **Add new gesture types** in `GestureRecognizer`
+- **Modify UI elements** independently in `UIManager`
+- **Add new video sources** in `VideoSource`
+- **Test individual components** in isolation
+- **Debug specific functionality** more easily
+
+The modular version provides the same functionality as the original but with better organization and maintainability.
