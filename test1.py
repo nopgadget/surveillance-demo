@@ -9,14 +9,12 @@ import screeninfo
 from pathlib import Path
 import mediapipe as mp
 from mediapipe.python.solutions import drawing_utils as mp_drawing
-from mediapipe.python.solutions import drawing_styles as mp_drawing_styles
 from mediapipe.python.solutions import pose as mp_pose
 import torch
 import pytomlpp
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 from mediapipe.framework.formats import landmark_pb2
-import dlib
 
 SOURCE_RTSP = "rtsp"
 SOURCE_WEBCAM = "webcam"
@@ -105,7 +103,6 @@ class MultiModelTrackerApp:
             'face_mesh': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
             'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
             'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
-            'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
             'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'},
             'info_display': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Info & QR Code'},
             'second_window': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Second Window'}
@@ -124,7 +121,7 @@ class MultiModelTrackerApp:
         # --- Model selection logic: Prefer CUDA, then ONNX, then CPU ---
         onnx_path = self.config.model_path + ".onnx"
         pt_path = self.config.model_path + ".pt"
-        if torch.cuda.is_available():
+        if torch.cuda.favailable():
             print(f"CUDA is available. Using PyTorch model on CUDA: {pt_path}")
             self.yolo_model = YOLO(pt_path).to('cuda')
         elif os.path.exists(onnx_path):
@@ -148,9 +145,6 @@ class MultiModelTrackerApp:
         self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
             raise RuntimeError(f"Cannot open video stream: {source}")
-
-        self.is_recording = False
-        self.video_writer = None
 
         # ASCII effect variables
         self.ascii_font_scale = 0.4       # Font scale for ASCII effect
@@ -1158,14 +1152,12 @@ class MultiModelTrackerApp:
 
             # TODO: Re-enable this when we want to show the logo and QR code
             if self.checkboxes['info_display']['checked']:
-                self._draw_info_text(display_frame_interactive, self.config.info_text_interactive)
-                #self._overlay_image(display_frame, self.logo, position="bottom-right")
-                self._overlay_image(display_frame_interactive, self.qr_code, position="bottom-left")
+                            self._draw_info_text(display_frame_interactive, self.config.info_text_interactive)
+            self._overlay_image(display_frame_interactive, self.qr_code, position="bottom-left")
             self._draw_checkboxes(display_frame_interactive)  # Draw all checkboxes on the current frame
 
             # Info text and QR code always shown on crowd window
             self._draw_info_text(display_frame_crowd, self.config.info_text)
-            #self._overlay_image(display_frame, self.logo, position="bottom-right")
             self._overlay_image(display_frame_crowd, self.qr_code, position="bottom-left")
 
             # --- Draw video pause indicator on crowd window (only for video files) ---
