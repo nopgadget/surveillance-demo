@@ -64,8 +64,12 @@ class UIManager:
         return img
     
     def _setup_checkboxes(self):
+        # Determine if hand detection should be enabled by default
+        # Disable hand detection for video files since gestures don't make sense
+        hand_detection_enabled = self.config.stream_source != StreamSource.VIDEO.value
+        
         checkboxes = {
-            'hand_detection': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Hand Detection'},
+            'hand_detection': {'checked': hand_detection_enabled, 'rect': (0, 0, 20, 20), 'label': 'Hand Detection'},
             'pose_detection': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
             'ascii_effect': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
             'face_mesh': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
