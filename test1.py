@@ -105,7 +105,6 @@ class MultiModelTrackerApp:
             'face_mesh': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
             'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
             'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
-            'face_swap': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Swap'},
             'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
             'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'},
             'info_display': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Info & QR Code'},
@@ -1212,10 +1211,6 @@ class MultiModelTrackerApp:
             # --- Face blackout (before face mesh) ---
             if (self.checkboxes['face_blackout']['checked']):
                 display_frame_interactive = self._blackout_faces(display_frame_interactive, last_face_mesh_results)
-
-            # --- Face swap (independent of other effects) ---
-            if self.checkboxes['face_swap']['checked']:
-                display_frame_interactive = self._apply_face_swap(display_frame_interactive)
 
             # Run FaceMesh overlay processing on the original frame if enabled
             if self.checkboxes['face_mesh']['checked'] and self.face_mesh_overlay is not None:
