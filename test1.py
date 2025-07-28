@@ -200,6 +200,34 @@ class MultiModelTrackerApp:
             min_tracking_confidence=0.5
         )
 
+        # Video navigation controls (only for video files)
+        self.video_paused = False
+        self.video_frame_step = 5  # Number of frames to step with arrow keys
+        self.is_video_file = self.config.stream_source == SOURCE_VIDEO
+
+    def _toggle_video_pause(self):
+        """Toggle video pause state (only for video files)."""
+        if self.is_video_file:
+            self.video_paused = not self.video_paused
+            status = "PAUSED" if self.video_paused else "RESUMED"
+            self._show_haptic_text(f"Video {status}")
+
+    def _step_video_frame(self, direction):
+        """Step video frame forward or backward (only for video files)."""
+        if not self.is_video_file or not self.video_paused:
+            return
+            
+        current_frame = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
+        total_frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        
+        if direction == "forward":
+            new_frame = min(current_frame + self.video_frame_step, total_frames - 1)
+        else:  # backward
+            new_frame = max(current_frame - self.video_frame_step, 0)
+            
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, new_frame)
+        self._show_haptic_text(f"Frame {int(new_frame)}/{int(total_frames)}")
+
     def _setup_screen(self):
         if self.config.fullscreen:
             try:
@@ -313,6 +341,11 @@ class MultiModelTrackerApp:
     def _frame_reader_thread(self):
         """Reads, resizes, and updates the shared self.latest_frame."""
         while not self.stop_event.is_set():
+            # Check if video is paused (only for video files)
+            if self.is_video_file and self.video_paused:
+                time.sleep(0.01)  # Small delay when paused
+                continue
+                
             ret, frame = self.cap.read()
             if not ret:
                 print("End of stream or camera disconnected.")
@@ -1101,27 +1134,31 @@ class MultiModelTrackerApp:
                 self.current_gesture = None
             # --- ASCII effect with auto-disable ---
             if (self.checkboxes['ascii_effect']['checked']):
+                # Initialize ascii_start_time if it's None (checkbox was checked directly)
+                if self.ascii_start_time is None:
+                    self.ascii_start_time = now
+                
                 # Check if ASCII effect should auto-disable
-                if self.ascii_start_time is not None:
-                    elapsed_time = now - self.ascii_start_time
-                    if elapsed_time >= self.ascii_duration:
-                        # Auto-disable ASCII effect after duration
-                        self.checkboxes['ascii_effect']['checked'] = False
-                        self.ascii_start_time = None
-                        self._show_haptic_text("ASCII effect auto-disabled!")
-                        # Reset ASCII frame
-                        with self.ascii_lock:
-                            self.latest_ascii_frame = None
-                    else:
-                        # Request ASCII conversion if not already requested
-                        if not self.ascii_request_event.is_set():
-                            self.ascii_request_event.set()
-                        # Use the latest ASCII frame if available
-                        with self.ascii_lock:
-                            if self.latest_ascii_frame is not None:
-                                display_frame_interactive = self.latest_ascii_frame.copy()
+                elapsed_time = now - self.ascii_start_time
+                if elapsed_time >= self.ascii_duration:
+                    # Auto-disable ASCII effect after duration
+                    self.checkboxes['ascii_effect']['checked'] = False
+                    self.ascii_start_time = None
+                    self._show_haptic_text("ASCII effect auto-disabled!")
+                    # Reset ASCII frame
+                    with self.ascii_lock:
+                        self.latest_ascii_frame = None
+                else:
+                    # Request ASCII conversion if not already requested
+                    if not self.ascii_request_event.is_set():
+                        self.ascii_request_event.set()
+                    # Use the latest ASCII frame if available
+                    with self.ascii_lock:
+                        if self.latest_ascii_frame is not None:
+                            display_frame_interactive = self.latest_ascii_frame.copy()
             else:
-                # Reset ASCII frame when not in ASCII mode
+                # Reset ASCII frame and timer when not in ASCII mode
+                self.ascii_start_time = None
                 with self.ascii_lock:
                     self.latest_ascii_frame = None
 
@@ -1148,6 +1185,23 @@ class MultiModelTrackerApp:
             self._draw_info_text(display_frame_crowd, self.config.info_text)
             #self._overlay_image(display_frame, self.logo, position="bottom-right")
             self._overlay_image(display_frame_crowd, self.qr_code, position="bottom-left")
+
+            # --- Draw video pause indicator on crowd window (only for video files) ---
+            if self.is_video_file and self.video_paused:
+                # Draw pause indicator in top-left corner
+                pause_text = "PAUSED"
+                text_size = cv2.getTextSize(pause_text, cv2.FONT_HERSHEY_SIMPLEX, 1.0, 2)[0]
+                text_x, text_y = 20, 40
+                
+                # Draw background rectangle
+                cv2.rectangle(display_frame_crowd, 
+                            (text_x - 10, text_y - text_size[1] - 10),
+                            (text_x + text_size[0] + 10, text_y + 10),
+                            (0, 0, 0), -1)
+                
+                # Draw text
+                cv2.putText(display_frame_crowd, pause_text, (text_x, text_y),
+                           cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
 
             # Average FPS Tally (end of playback)
             total_frame_count += 1
@@ -1285,6 +1339,23 @@ class MultiModelTrackerApp:
             # --- Draw haptic text (on top of everything) ---
             self._draw_haptic_text(display_frame_interactive)
 
+            # --- Draw video pause indicator (only for video files) ---
+            if self.is_video_file and self.video_paused:
+                # Draw pause indicator in top-left corner
+                pause_text = "PAUSED"
+                text_size = cv2.getTextSize(pause_text, cv2.FONT_HERSHEY_SIMPLEX, 1.0, 2)[0]
+                text_x, text_y = 20, 40
+                
+                # Draw background rectangle
+                cv2.rectangle(display_frame_interactive, 
+                            (text_x - 10, text_y - text_size[1] - 10),
+                            (text_x + text_size[0] + 10, text_y + 10),
+                            (0, 0, 0), -1)
+                
+                # Draw text
+                cv2.putText(display_frame_interactive, pause_text, (text_x, text_y),
+                           cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+
             cv2.imshow(self.config.window_name_interactive, display_frame_interactive)
             
             # Handle second window visibility
@@ -1309,6 +1380,12 @@ class MultiModelTrackerApp:
             if key == ord('q') or key == 27: # q or escape key
                 self.stop_event.set()
                 break
+            elif key == ord(' '):  # Space bar - toggle pause
+                self._toggle_video_pause()
+            elif key == 83:  # Right arrow key - step forward
+                self._step_video_frame("forward")
+            elif key == 81:  # Left arrow key - step backward
+                self._step_video_frame("backward")
         
         # Average FPS Calcuation
         end_frame_time = time.time()
