@@ -59,6 +59,7 @@ All tracking is performed in real-time, and the session data is discarded the mo
 The application can be controlled using the following keyboard commands while the video window is active:
 
 * **Quit**: Press `q` or `esc` to close the application and end the video stream.
+* **Pause/Resume Video**: Press `space` to pause or resume video playback (only available when using video files as the source).
 
 ---
 
