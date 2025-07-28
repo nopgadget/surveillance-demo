@@ -209,8 +209,6 @@ class MultiModelTrackerApp:
         """Toggle video pause state (only for video files)."""
         if self.is_video_file:
             self.video_paused = not self.video_paused
-            status = "PAUSED" if self.video_paused else "RESUMED"
-            self._show_haptic_text(f"Video {status}")
 
     def _step_video_frame(self, direction):
         """Step video frame forward or backward (only for video files)."""
