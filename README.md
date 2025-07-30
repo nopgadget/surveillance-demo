@@ -1,6 +1,6 @@
 # Real-time People Tracker 'Surveillance' Demo
 
-![Pose Detection Demo](pose-demo.png)
+![Pose Detection Demo](img/pose-demo.png)
 
 ## 🚀 Quick Start
 
