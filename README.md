@@ -90,7 +90,9 @@ python -m pip install -r .\requirements.txt
 conda install conda-forge::dlib
 ```
 
-Alternatively:
+**Important**: The `dlib` library is difficult to install with pip/venv. If you're using a virtual environment (venv), you'll need to install dlib separately using conda even within your venv, or switch to using conda for the entire environment.
+
+Alternatively (without face swap feature):
 
 ```
 # Navigate to the repo
@@ -144,7 +146,6 @@ surveillance-demo/
 ├── src/                          # Modular source code
 │   ├── __init__.py              # Package initialization
 │   ├── main.py                  # Main application entry point
-│   ├── stream_source.py         # StreamSource enum
 │   ├── app_config.py            # AppConfig dataclass
 │   ├── video_source.py          # VideoSource class
 │   ├── model_manager.py         # ModelManager class
@@ -152,23 +153,40 @@ surveillance-demo/
 │   ├── effect_processor.py      # EffectProcessor classes
 │   ├── gesture_recognizer.py    # GestureRecognizer class
 │   ├── thread_manager.py        # ThreadManager class
-│   └── surveillance_demo.py     # Main SurveillanceDemo class
-├── run.py                       # Application launcher script
-├── test_imports.py              # Import test script
+│   ├── surveillance_demo.py     # Main SurveillanceDemo class
+│   └── modules/                 # Additional modules
+│       ├── __init__.py          # Modules package
+│       ├── drawing_manager.py   # Drawing utilities
+│       ├── effects_manager.py   # Effects management
+│       ├── frame_processor.py   # Frame processing
+│       ├── input_handler.py     # Input handling
+│       └── ui_renderer.py       # UI rendering
+├── models/                       # Model files directory
+├── img/                          # Image assets
+├── vid/                          # Video files
+├── tools/                        # Utility scripts
+├── deprecated/                   # Legacy code
+├── run.py                        # Application launcher script
+├── requirements.txt              # Python dependencies
+├── example-config.toml          # Example configuration
 └── README.md                    # This file
 ```
 
 ### Class Responsibilities
 
-- **StreamSource**: Defines video source types (RTSP, Webcam, Video)
 - **AppConfig**: Handles configuration loading and management
-- **VideoSource**: Manages video input from different sources
+- **VideoSource**: Manages video input from different sources (RTSP, Webcam, Video)
 - **ModelManager**: Handles YOLO and MediaPipe model initialization
 - **UIManager**: Manages UI elements, checkboxes, and user interactions
-- **EffectProcessor**: Abstract base for video effects (ASCII, Face Overlay)
+- **EffectProcessor**: Abstract base for video effects (ASCII, Face Swap, Face Blackout)
 - **GestureRecognizer**: Handles hand gesture detection and interpretation
 - **ThreadManager**: Manages threading for concurrent processing
 - **SurveillanceDemo**: Main orchestrator that coordinates all components
+- **EffectsManager**: Manages the application of various visual effects
+- **FrameProcessor**: Handles the main frame processing loop
+- **DrawingManager**: Manages drawing operations and overlays
+- **InputHandler**: Processes user input and interactions
+- **UIRenderer**: Handles UI rendering and display
 
 ### Benefits of the Modular Structure
 
