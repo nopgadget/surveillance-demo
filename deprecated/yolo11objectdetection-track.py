@@ -13,10 +13,10 @@ cv2.namedWindow('RGB')
 cv2.setMouseCallback('RGB', RGB)
 
 # Load the YOLO11 model
-model = YOLO("yolo11s.pt")
+model = YOLO("../models/yolo11s.pt")
 names=model.model.names
 # Open the video file (use video file or webcam, here using webcam)
-cap = cv2.VideoCapture('people1.avi')
+cap = cv2.VideoCapture('../vid/people1.avi')
 count=0
 cy1=261
 cy2=286

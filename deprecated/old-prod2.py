@@ -18,11 +18,11 @@ cv2.namedWindow('Tracker')
 #cv2.setMouseCallback('RGB', RGB)
 
 # Load the YOLO model for object detection (people)
-person_model = YOLO("yolo11n.pt")
+person_model = YOLO("../models/yolo11n.pt")
 person_names = person_model.model.names
 
 # Load the YOLO model specifically trained for face detection
-face_model = YOLO("yolov8n-face.pt") # You might need to download this model
+face_model = YOLO("../models/yolov8n-face.pt") # You might need to download this model
 face_names = face_model.model.names
 
 # Open the video file (use video file or webcam, here using webcam)

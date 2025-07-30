@@ -13,7 +13,7 @@ cv2.namedWindow('RGB')
 cv2.setMouseCallback('RGB', RGB)
 
 # Load the YOLO11 model
-model = YOLO("yolo11n.pt")
+model = YOLO("../models/yolo11n.pt")
 names=model.model.names
 # Open the video file (use video file or webcam, here using webcam)
 rtsp_url = "rtsp://192.168.33.109:554/0/0/0"

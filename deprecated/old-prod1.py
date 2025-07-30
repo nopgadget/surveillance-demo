@@ -7,8 +7,8 @@ import screeninfo
 
 # Configuration
 RTSP_URL = "rtsp://192.168.1.109:554/0/0/0"
-MODEL_PATH = "models/yolo11n.pt"
-LOGO_PATH = "img/odplogo.png"
+MODEL_PATH = "../models/yolo11n.pt"
+LOGO_PATH = "../img/odplogo.png"
 WINDOW_NAME = "People Tracker"
 
 # Get screen dimensions
@@ -21,7 +21,7 @@ if logo is None:
     raise FileNotFoundError("Logo image not found!")
 
 # Load QR code
-qr_code = cv2.imread("img/qr-code.png", cv2.IMREAD_UNCHANGED)
+qr_code = cv2.imread("../img/qr-code.png", cv2.IMREAD_UNCHANGED)
 if qr_code is None:
     raise FileNotFoundError("QR code image not found!")
     raise FileNotFoundError("Logo image not found!")
