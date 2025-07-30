@@ -1,5 +1,5 @@
 import cv2
-from .stream_source import StreamSource
+from .app_config import StreamSource
 
 class VideoSource:
     def __init__(self, config):

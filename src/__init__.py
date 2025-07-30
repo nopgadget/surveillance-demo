@@ -1,7 +1,7 @@
 # Surveillance Demo Package
 # This package contains all the classes for the surveillance demo application
 
-from .stream_source import StreamSource
+from .app_config import StreamSource
 from .app_config import AppConfig
 from .video_source import VideoSource
 from .model_manager import ModelManager

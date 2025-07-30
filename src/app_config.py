@@ -1,6 +1,12 @@
 import os
 import pytomlpp
 from dataclasses import dataclass
+from enum import Enum
+
+class StreamSource(Enum):
+    RTSP = "rtsp"
+    WEBCAM = "webcam"
+    VIDEO = "video"
 
 @dataclass
 class AppConfig:

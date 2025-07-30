@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import time
 import screeninfo
-from .stream_source import StreamSource
+from .app_config import StreamSource
 
 class UIManager:
     def __init__(self, config):

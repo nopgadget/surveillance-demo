@@ -8,7 +8,7 @@ window_name = "Multi-Tracking Demo"
 fullscreen = false
 
 info_text = "No data is retained, stored or shared."
-info_text_interactive = "No data is retained, stored or shared. Hold up hand for additional effects."
+info_text_interactive = "No data is retained, stored or shared. Raise different # of fingers for additional effects."
 
 logo_path = "img/odplogo.png"
 qr_code_path = "img/qr-code.png"
