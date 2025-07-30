@@ -138,4 +138,77 @@ class UIManager:
         self.haptic_text_start_time = time.time()
         self.haptic_text_alpha = 0.0
     
+    def draw_finger_menu(self, frame, current_finger_count=None):
+        """Draw finger count menu above QR code."""
+        # Define features and their finger counts
+        features = [
+            ("Pose Detection", 1),
+            ("ASCII Effect", 2),
+            ("Face Mesh", 3),
+            ("Face Blackout", 4),
+            ("Face Overlay", 5)
+        ]
+        
+        # Calculate QR code position to place menu above it
+        fh, fw = frame.shape[:2]
+        qr_margin = 10
+        qr_max_width = fw // 6
+        
+        # Get QR code dimensions
+        qr_img = self.assets['qr_code']
+        qr_oh, qr_ow = qr_img.shape[:2] if qr_img is not None else (100, 100)
+        if qr_ow > qr_max_width:
+            scale = qr_max_width / qr_ow
+            qr_ow = int(qr_ow * scale)
+            qr_oh = int(qr_oh * scale)
+        
+        qr_x, qr_y = qr_margin, fh - qr_oh - qr_margin
+        
+        # Menu position (higher up, more space from QR code)
+        menu_x = qr_x
+        menu_y = qr_y - 30  # 30 pixels above QR code instead of 10
+        
+        # Menu styling - no background box, just dark text
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.6  # Bigger text
+        font_thickness = 1  # Thicker text for better visibility
+        line_height = 25  # Bigger line height for larger text
+        padding = 5
+        
+        # Calculate menu dimensions
+        max_text_width = 0
+        for feature_name, finger_count in features:
+            text = f"{feature_name}: {finger_count}"
+            text_size = cv2.getTextSize(text, font, font_scale, font_thickness)[0]
+            max_text_width = max(max_text_width, text_size[0])
+        
+        # Draw menu title (less bold)
+        title = "Fingers"
+        title_size = cv2.getTextSize(title, font, font_scale, font_thickness)[0]  # Same font size as features
+        title_x = menu_x
+        title_y = menu_y - (len(features) + 1) * line_height - padding
+        
+        # Ensure menu doesn't go off screen
+        if title_y < 20:
+            title_y = 20
+        
+        # Draw title in white color for legibility
+        cv2.putText(frame, title, (title_x, title_y), 
+                   font, font_scale, (255, 255, 255), font_thickness, cv2.LINE_AA)  # White text
+        
+        # Draw feature list
+        for i, (feature_name, finger_count) in enumerate(features):
+            text = f"{feature_name}: {finger_count}"
+            text_y = title_y + (i + 1) * line_height
+            
+            # Highlight current feature if it matches the current finger count
+            if current_finger_count is not None and current_finger_count == finger_count:
+                text_color = (0, 255, 0)  # Green text for active feature
+            else:
+                text_color = (255, 255, 255)  # White text for legibility
+            
+            # Draw text without outline for cleaner look
+            cv2.putText(frame, text, (menu_x, text_y), 
+                       font, font_scale, text_color, font_thickness, cv2.LINE_AA)  # Colored text
+    
  

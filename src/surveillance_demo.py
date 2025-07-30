@@ -238,6 +238,9 @@ class SurveillanceDemo:
                 last_hand_results, current_gesture, current_finger_count, thumbs_down_detected
             )
             
+            # Store current finger count for menu highlighting
+            self.current_finger_count = current_finger_count
+            
             # Apply effects
             display_frame = self._apply_effects(display_frame, last_face_mesh_results)
             
@@ -389,6 +392,9 @@ class SurveillanceDemo:
         # Draw QR code
         self._overlay_image(frame, self.ui_manager.assets['qr_code'], position="bottom-left")
         
+        # Draw finger count menu above QR code
+        self.ui_manager.draw_finger_menu(frame, self.current_finger_count)
+        
         # Draw checkboxes
         if self.ui_manager.checkboxes_visible:
             self._draw_checkboxes(frame)
@@ -464,6 +470,8 @@ class SurveillanceDemo:
         # Draw FPS text
         cv2.putText(frame, self.ui_manager.fps_string, (fps_x, fps_y), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+    
+
     
     def _draw_gesture_progress(self, frame, gesture):
         """Draw gesture progress indicator."""
