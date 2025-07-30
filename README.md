@@ -1,5 +1,7 @@
 # Real-time People Tracker 'Surveillance' Demo
 
+![Pose Detection Demo](pose-demo.png)
+
 ## 🚀 Quick Start
 
 **To use your webcam for this demo:**
