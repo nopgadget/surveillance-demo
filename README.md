@@ -82,6 +82,12 @@ python -m pip install -r .\requirements.txt
 # If it fails, specifically with "encode() argument 'encoding' must be str", run the pip install a second time
 ```
 
+**Note**: If you encounter issues installing the `dlib` library (required for the face swap feature), the easiest way to resolve this is by using conda:
+
+```bash
+conda install conda-forge::dlib
+```
+
 Alternatively:
 
 ```
@@ -98,6 +104,8 @@ The application uses a TOML configuration file. You must copy the example config
 ```bash
 cp example-config.toml config.toml
 ```
+
+**Optional**: If you want to use the face swap feature, download the required model from [here](https://huggingface.co/spaces/asdasdasdasd/Face-forgery-detection/blob/ccfc24642e0210d4d885bc7b3dbc9a68ed948ad6/shape_predictor_68_face_landmarks.dat) and place it in the `models/` directory as `shape_predictor_68_face_landmarks.dat`.
 
 Then edit `config.toml` to configure your video source:
 
