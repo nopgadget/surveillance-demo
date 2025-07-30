@@ -65,6 +65,9 @@ class SurveillanceDemo:
     
     def _frame_reader_thread(self):
         """Reads frames from video source."""
+        frame_count = 0
+        start_time = time.time()
+        
         while not self.thread_manager.stop_event.is_set():
             # Check if video is paused (only for video files)
             if self.ui_manager.is_video_file and self.ui_manager.video_paused:
@@ -76,6 +79,17 @@ class SurveillanceDemo:
                 print("End of stream or camera disconnected.")
                 self.thread_manager.stop_all()
                 break
+            
+            # Update FPS based on actual frame reading
+            frame_count += 1
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+            
+            if elapsed_time >= 0.5:  # Update every 0.5 seconds
+                fps = frame_count / elapsed_time
+                self.ui_manager.fps_string = f"FPS: {int(fps)}"
+                frame_count = 0
+                start_time = current_time
             
             resized_frame = cv2.resize(frame, (self.ui_manager.width, self.ui_manager.height))
             with self.frame_lock:
@@ -368,9 +382,6 @@ class SurveillanceDemo:
                     )
     
     def _draw_ui_elements(self, frame):
-        # Update FPS counter
-        self.ui_manager.update_fps()
-        
         # Draw info text
         if self.ui_manager.checkboxes['info_display']['checked']:
             self._draw_info_text(frame, self.config.info_text_interactive)

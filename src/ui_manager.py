@@ -23,8 +23,6 @@ class UIManager:
         self.haptic_text_alpha = 0.0
         
         # FPS tracking
-        self.frame_count = 0
-        self.start_time = time.time()
         self.fps_string = "FPS: N/A"
         
         # Set mouse callback
@@ -140,14 +138,4 @@ class UIManager:
         self.haptic_text_start_time = time.time()
         self.haptic_text_alpha = 0.0
     
-    def update_fps(self):
-        """Update FPS counter."""
-        self.frame_count += 1
-        current_time = time.time()
-        elapsed_time = current_time - self.start_time
-        
-        if elapsed_time >= 0.5:  # Update every 0.5 seconds
-            fps = self.frame_count / elapsed_time
-            self.fps_string = f"FPS: {int(fps)}"
-            self.frame_count = 0
-            self.start_time = current_time 
+ 
