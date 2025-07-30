@@ -14,7 +14,7 @@ from .app_config import AppConfig
 from .ui_manager import UIManager
 from .model_manager import ModelManager
 from .thread_manager import ThreadManager
-from .effect_processor import ASCIIEffect, FaceOverlayEffect, FaceBlackoutEffect
+from .effect_processor import ASCIIEffect, FaceBlackoutEffect
 from .gesture_recognizer import GestureRecognizer
 from .video_source import VideoSource
 from .modules import FrameProcessor, DrawingManager, UIRenderer, EffectsManager, InputHandler
@@ -122,5 +122,6 @@ class SurveillanceDemo:
         print("Cleaning up resources...")
         self.thread_manager.stop_all()
         self.stream_source.release()
+        self.effects_manager.cleanup()
         cv2.destroyAllWindows()
         print("Application closed.") 

@@ -129,7 +129,7 @@ class FrameProcessor:
         
         while not self.thread_manager.stop_event.is_set():
             if not (self.ui_manager.checkboxes['face_mesh']['checked'] or 
-                   self.ui_manager.checkboxes['face_overlay']['checked'] or 
+                   self.ui_manager.checkboxes['face_swap']['checked'] or 
                    self.ui_manager.checkboxes['face_blackout']['checked']):
                 time.sleep(0.1)
                 continue

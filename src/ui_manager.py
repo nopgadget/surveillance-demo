@@ -50,8 +50,7 @@ class UIManager:
     def _load_assets(self):
         return {
             'logo': self._load_image(self.config.logo_path),
-            'qr_code': self._load_image(self.config.qr_code_path),
-            'face_overlay': self._load_image(self.config.face_overlay_path)
+            'qr_code': self._load_image(self.config.qr_code_path)
         }
     
     def _load_image(self, path: str):
@@ -71,7 +70,7 @@ class UIManager:
             'pose_detection': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Pose Detection'},
             'ascii_effect': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'ASCII Effect'},
             'face_mesh': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Mesh'},
-            'face_overlay': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Replace'},
+            'face_swap': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Swap'},
             'face_blackout': {'checked': False, 'rect': (0, 0, 20, 20), 'label': 'Face Blackout'},
             'fps_counter': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'FPS Counter'},
             'info_display': {'checked': True, 'rect': (0, 0, 20, 20), 'label': 'Info & QR Code'},
@@ -146,7 +145,7 @@ class UIManager:
             ("ASCII Effect", 2),
             ("Face Mesh", 3),
             ("Face Blackout", 4),
-            ("Face Overlay", 5)
+            ("Face Swap", 5)
         ]
         
         # Calculate QR code position to place menu above it

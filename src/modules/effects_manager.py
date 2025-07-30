@@ -1,4 +1,4 @@
-from ..effect_processor import ASCIIEffect, FaceOverlayEffect, FaceBlackoutEffect
+from ..effect_processor import ASCIIEffect, FaceBlackoutEffect, OptimizedFaceSwapEffect
 
 class EffectsManager:
     """Handles all effects management and application."""
@@ -9,8 +9,8 @@ class EffectsManager:
         # Initialize effects
         self.effects = {
             'ascii': ASCIIEffect(),
-            'face_overlay': FaceOverlayEffect(ui_manager.assets['face_overlay']),
-            'face_blackout': FaceBlackoutEffect()
+            'face_blackout': FaceBlackoutEffect(),
+            'face_swap': OptimizedFaceSwapEffect("img/kevin-hart.jpg")
         }
     
     def apply_effects(self, frame, face_mesh_results):
@@ -19,12 +19,17 @@ class EffectsManager:
         if self.ui_manager.checkboxes['ascii_effect']['checked']:
             frame = self.effects['ascii'].process(frame)
         
-        # Apply face overlay
-        if self.ui_manager.checkboxes['face_overlay']['checked']:
-            frame = self.effects['face_overlay'].process(frame, face_mesh_results=face_mesh_results)
+        # Apply face swap
+        if self.ui_manager.checkboxes.get('face_swap', {}).get('checked', False):
+            frame = self.effects['face_swap'].process(frame, face_mesh_results=face_mesh_results)
         
         # Apply face blackout
         if self.ui_manager.checkboxes['face_blackout']['checked']:
             frame = self.effects['face_blackout'].process(frame, face_mesh_results=face_mesh_results)
         
-        return frame 
+        return frame
+    
+    def cleanup(self):
+        """Clean up resources for effects that need it."""
+        if 'face_swap' in self.effects:
+            self.effects['face_swap'].cleanup() 

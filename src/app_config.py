@@ -22,7 +22,7 @@ class AppConfig:
     info_text_interactive: str = "No data is retained, stored or shared. Use hand gestures for effects."
     logo_path: str = "img/odplogo.png"
     qr_code_path: str = "img/qr-code.png"
-    face_overlay_path: str = "img/dwayne.png"  # Updated to match config
+
     face_swap_source_path: str = "img/musk.jpg"  # Added to match config
     model_path: str = "models/yolo11n"
     yolo_conf_threshold: float = 0.3

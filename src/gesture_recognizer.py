@@ -169,7 +169,7 @@ class GestureRecognizer:
             2: 'ascii_effect',        # 2 fingers = ASCII effect
             3: 'face_mesh',           # 3 fingers = face mesh
             4: 'face_blackout',       # 4 fingers = face blackout
-            5: 'face_overlay'         # 5 fingers = face overlay
+            5: 'face_swap'            # 5 fingers = face swap
         }
         
         if finger_count in gesture_features:
@@ -203,7 +203,7 @@ class GestureRecognizer:
             return
         
         # Features that can be deactivated by thumbs down
-        deactivatable_features = ['pose_detection', 'ascii_effect', 'face_mesh', 'face_blackout', 'face_overlay']
+        deactivatable_features = ['pose_detection', 'ascii_effect', 'face_mesh', 'face_blackout', 'face_swap']
         
         deactivated_count = 0
         for feature_name in deactivatable_features:
@@ -263,7 +263,7 @@ class GestureRecognizer:
                 2: 'ascii_effect', 
                 3: 'face_mesh',
                 4: 'face_blackout',
-                5: 'face_overlay'
+                5: 'face_swap'
             }
             
             feature_name = gesture_features.get(current_gesture)
