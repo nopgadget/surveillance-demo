@@ -1,49 +1,24 @@
 import cv2
 import numpy as np
-from abc import ABC, abstractmethod
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import time
-
-class EffectProcessor(ABC):
-    @abstractmethod
-    def process(self, frame: np.ndarray, **kwargs) -> np.ndarray:
-        pass
-
-class ASCIIEffect(EffectProcessor):
-    def __init__(self):
-        self.font_scale = 0.4
-        self.cell_size = 8
-        self.chars = "@%#*+=-:. "
-    
-    def process(self, frame: np.ndarray, **kwargs) -> np.ndarray:
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        h, w = gray.shape
-        out_img = np.zeros_like(frame)
-        
-        for y in range(0, h, self.cell_size):
-            for x in range(0, w, self.cell_size):
-                cell = gray[y:y+self.cell_size, x:x+self.cell_size]
-                if cell.size == 0:
-                    continue
-                avg = int(np.mean(cell))
-                char_idx = int((avg / 255) * (len(self.chars) - 1))
-                char = self.chars[char_idx]
-                
-                green_intensity = int((avg / 255) * 255) + 100
-                color = (0, green_intensity, 0)
-                
-                cv2.putText(
-                    out_img, char, (x, y + self.cell_size),
-                    cv2.FONT_HERSHEY_SIMPLEX, self.font_scale, color, 1, cv2.LINE_AA
-                )
-        return out_img
-
-
+from .effect_base import EffectProcessor
 
 class FaceBlackoutEffect(EffectProcessor):
+    """Blackout detected faces using the convex hull of FaceMesh landmarks."""
+    
     def process(self, frame: np.ndarray, face_mesh_results=None, **kwargs) -> np.ndarray:
-        """Blackout detected faces using the convex hull of FaceMesh landmarks."""
+        """Apply blackout effect to detected faces.
+        
+        Args:
+            frame: Input frame as numpy array
+            face_mesh_results: Face mesh detection results
+            **kwargs: Additional parameters (unused)
+            
+        Returns:
+            Frame with faces blacked out
+        """
         if face_mesh_results is None or not face_mesh_results.multi_face_landmarks:
             return frame
             
@@ -65,10 +40,12 @@ class FaceBlackoutEffect(EffectProcessor):
                 black_color = (0, 0, 0)  # BGR format: black
                 frame[mask > 0] = black_color
                     
-        return frame 
+        return frame
+
 
 class FaceSwapOptimizer:
     """Optimization class for face swap operations."""
+    
     def __init__(self):
         self.cache = {}
         self.last_face_detection = None
@@ -128,8 +105,9 @@ class FaceSwapOptimizer:
         if self.executor:
             self.executor.shutdown(wait=True)
 
+
 class OptimizedFaceSwapEffect(EffectProcessor):
-    """Advanced face swap effect with optimizations from face-swap-experiment.py."""
+    """Advanced face swap effect with optimizations."""
     
     def __init__(self, source_face_path: str = "img/kevin-hart.jpg"):
         self.source_face_path = source_face_path
@@ -158,6 +136,7 @@ class OptimizedFaceSwapEffect(EffectProcessor):
     def _preprocess_source_face(self):
         """Preprocess source face once and cache results."""
         if self.detector is None or self.predictor is None:
+            print("Warning: dlib face detection not available. Face swap will be disabled.")
             return
             
         try:
@@ -216,6 +195,8 @@ class OptimizedFaceSwapEffect(EffectProcessor):
                 'convexhull': convexhull,
                 'indexes_triangles': indexes_triangles
             }
+            
+            print(f"Face swap initialized successfully with {len(indexes_triangles)} triangles")
             
         except Exception as e:
             print(f"Error preprocessing source face: {e}")
@@ -313,6 +294,10 @@ class OptimizedFaceSwapEffect(EffectProcessor):
         # Adaptive face detection - use lower sensitivity if we already have faces
         upsample_factor = 1 if len(self.optimizer.last_face_positions) > 0 else 2
         faces2 = self.detector(img2_gray, upsample_factor)
+        
+        # Debug output
+        if self.optimizer.frame_count % 30 == 0:  # Print every 30 frames
+            print(f"Face swap: Found {len(faces2)} faces in frame")
         
         # Smart frame processing - skip if faces haven't moved significantly
         if not self.optimizer.should_process_frame_smart(faces2):
@@ -424,9 +409,15 @@ class OptimizedFaceSwapEffect(EffectProcessor):
     def process(self, frame: np.ndarray, face_mesh_results=None, **kwargs) -> np.ndarray:
         """Apply optimized face swap effect to the frame."""
         if self.source_data is None:
+            if self.optimizer.frame_count % 60 == 0:  # Print every 60 frames
+                print("Face swap: No source data available")
             return frame
             
         self.optimizer.frame_count += 1
+        
+        # Debug output
+        if self.optimizer.frame_count % 60 == 0:  # Print every 60 frames
+            print(f"Face swap: Processing frame {self.optimizer.frame_count}")
         
         # Smart processing with caching and motion detection
         return self._process_face_swap(frame)
