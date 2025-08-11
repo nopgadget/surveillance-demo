@@ -145,7 +145,7 @@ class UIManager:
             ("ASCII Effect", 2),
             ("Face Mesh", 3),
             ("Face Blackout", 4),
-            ("Face Swap", 5)
+            #("Face Swap", 5)
         ]
         
         # Calculate QR code position to place menu above it
