@@ -139,6 +139,8 @@ class UIManager:
     
     def draw_finger_menu(self, frame, current_finger_count=None):
         """Draw finger count menu above QR code."""
+        import time
+        
         # Define features and their finger counts
         features = [
             ("Pose Detection", 1),
@@ -165,14 +167,14 @@ class UIManager:
         
         # Menu position (higher up, more space from QR code)
         menu_x = qr_x
-        menu_y = qr_y - 30  # 30 pixels above QR code instead of 10
+        menu_y = qr_y - 60  # 60 pixels above QR code instead of 30
         
         # Menu styling - no background box, just dark text
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.6  # Bigger text
-        font_thickness = 1  # Thicker text for better visibility
-        line_height = 25  # Bigger line height for larger text
-        padding = 5
+        font_scale = 1.2  # 2x bigger text (was 0.6)
+        font_thickness = 2  # Thicker text for better visibility
+        line_height = 50  # Bigger line height for larger text
+        padding = 10
         
         # Calculate menu dimensions
         max_text_width = 0
@@ -181,7 +183,7 @@ class UIManager:
             text_size = cv2.getTextSize(text, font, font_scale, font_thickness)[0]
             max_text_width = max(max_text_width, text_size[0])
         
-        # Draw menu title (less bold)
+        # Draw menu title with alternating colors like info text
         title = "Fingers"
         title_size = cv2.getTextSize(title, font, font_scale, font_thickness)[0]  # Same font size as features
         title_x = menu_x
@@ -191,9 +193,11 @@ class UIManager:
         if title_y < 20:
             title_y = 20
         
-        # Draw title in white color for legibility
+        # Draw title with alternating colors like info text
+        fade = 0.5 * (1 + np.sin(time.time() * 3))
+        title_color = (int(fade * 230), int(fade * 216), int(fade * 173))
         cv2.putText(frame, title, (title_x, title_y), 
-                   font, font_scale, (255, 255, 255), font_thickness, cv2.LINE_AA)  # White text
+                   font, font_scale, title_color, font_thickness, cv2.LINE_AA)
         
         # Draw feature list
         for i, (feature_name, finger_count) in enumerate(features):
@@ -204,7 +208,11 @@ class UIManager:
             if current_finger_count is not None and current_finger_count == finger_count:
                 text_color = (0, 255, 0)  # Green text for active feature
             else:
-                text_color = (255, 255, 255)  # White text for legibility
+                # Use alternating colors for non-active features with different time offsets
+                # Each line gets a different offset so they alternate at different times
+                time_offset = i * 1.0  # 1.0 second offset between each line
+                fade = 0.5 * (1 + np.sin(time.time() * 3 + time_offset))
+                text_color = (int(fade * 230), int(fade * 216), int(fade * 173))
             
             # Draw text without outline for cleaner look
             cv2.putText(frame, text, (menu_x, text_y), 
