@@ -196,10 +196,10 @@ class UIRenderer:
         text_scale = 0.4  # Reduced from 1.2 to 0.24 (1/5 of original size)
         font_thickness = 1  # Reduced from 3 to 1 for smaller text
         
-        # Calculate text size and position (left side, vertically centered)
+        # Calculate text size and position (left side, positioned above menu area)
         text_size, _ = cv2.getTextSize(self.gesture_recognizer.haptic_text, font, text_scale, font_thickness)
         text_x = 50  # Left margin
-        text_y = (frame.shape[0] + text_size[1]) // 2  # Vertically centered
+        text_y = frame.shape[0] // 3  # Position in upper third of screen, above menu area
         
         # Draw background rectangle for better visibility
         bg_padding = 20
