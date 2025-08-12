@@ -14,7 +14,8 @@ from .app_config import AppConfig
 from .ui_manager import UIManager
 from .model_manager import ModelManager
 from .thread_manager import ThreadManager
-from .effect_processor import ASCIIEffect, FaceBlackoutEffect
+from .modules.ascii_effect import ASCIIEffect
+from .modules.face_effects import FaceBlackoutEffect
 from .gesture_recognizer import GestureRecognizer
 from .video_source import VideoSource
 from .modules import FrameProcessor, DrawingManager, UIRenderer, EffectsManager, InputHandler

@@ -1,4 +1,5 @@
-from ..effect_processor import ASCIIEffect, FaceBlackoutEffect, OptimizedFaceSwapEffect
+from .ascii_effect import ASCIIEffect
+from .face_effects import FaceBlackoutEffect, OptimizedFaceSwapEffect
 
 class EffectsManager:
     """Handles all effects management and application."""
@@ -10,7 +11,7 @@ class EffectsManager:
         self.effects = {
             'ascii': ASCIIEffect(),
             'face_blackout': FaceBlackoutEffect(),
-            'face_swap': OptimizedFaceSwapEffect("img/kevin-hart.jpg")
+            'face_swap': OptimizedFaceSwapEffect("img/musk.jpg")
         }
     
     def apply_effects(self, frame, face_mesh_results):

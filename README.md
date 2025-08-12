@@ -150,17 +150,19 @@ surveillance-demo/
 │   ├── video_source.py          # VideoSource class
 │   ├── model_manager.py         # ModelManager class
 │   ├── ui_manager.py            # UIManager class
-│   ├── effect_processor.py      # EffectProcessor classes
+│   ├── modules/                 # Effect and processing modules
+│   │   ├── __init__.py          # Modules package
+│   │   ├── effect_base.py       # EffectProcessor base class
+│   │   ├── ascii_effect.py      # ASCII art effect
+│   │   ├── face_effects.py      # Face effects (blackout, swap)
+│   │   ├── drawing_manager.py   # Drawing utilities
+│   │   ├── effects_manager.py   # Effects management
+│   │   ├── frame_processor.py   # Frame processing
+│   │   ├── input_handler.py     # Input handling
+│   │   └── ui_renderer.py       # UI rendering
 │   ├── gesture_recognizer.py    # GestureRecognizer class
 │   ├── thread_manager.py        # ThreadManager class
-│   ├── surveillance_demo.py     # Main SurveillanceDemo class
-│   └── modules/                 # Additional modules
-│       ├── __init__.py          # Modules package
-│       ├── drawing_manager.py   # Drawing utilities
-│       ├── effects_manager.py   # Effects management
-│       ├── frame_processor.py   # Frame processing
-│       ├── input_handler.py     # Input handling
-│       └── ui_renderer.py       # UI rendering
+│   └── surveillance_demo.py     # Main SurveillanceDemo class
 ├── models/                       # Model files directory
 ├── img/                          # Image assets
 ├── vid/                          # Video files
@@ -178,7 +180,9 @@ surveillance-demo/
 - **VideoSource**: Manages video input from different sources (RTSP, Webcam, Video)
 - **ModelManager**: Handles YOLO and MediaPipe model initialization
 - **UIManager**: Manages UI elements, checkboxes, and user interactions
-- **EffectProcessor**: Abstract base for video effects (ASCII, Face Swap, Face Blackout)
+- **EffectProcessor**: Abstract base for video effects (in `modules/effect_base.py`)
+- **ASCIIEffect**: ASCII art conversion effect (in `modules/ascii_effect.py`)
+- **FaceEffects**: Face blackout and swap effects (in `modules/face_effects.py`)
 - **GestureRecognizer**: Handles hand gesture detection and interpretation
 - **ThreadManager**: Manages threading for concurrent processing
 - **SurveillanceDemo**: Main orchestrator that coordinates all components
